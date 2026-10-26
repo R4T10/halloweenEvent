@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node \"/c/Users/PC/AppData/Local/Temp/claude/C--Users-PC-AppData-Local-Claude-Data-claude-pzs8sxrjxfjjc-scratch-workspaces-73d09e55-46ec-412d-ae85-c54934d53130-ea91f1ec-5d17-4e55-b72b-8ce40a584e5b-scratch-2026-10-24-568b26/3e23b340-02e1-4f7a-a4f7-28b0771e6237/scratchpad/patch_em.js\" src/main/java/com/halloweenevent/server/EventManager.java)",
+      "Bash(node \"/c/Users/PC/AppData/Local/Temp/claude/C--Users-PC-AppData-Local-Claude-Data-claude-pzs8sxrjxfjjc-scratch-workspaces-73d09e55-46ec-412d-ae85-c54934d53130-ea91f1ec-5d17-4e55-b72b-8ce40a584e5b-scratch-2026-10-24-568b26/3e23b340-02e1-4f7a-a4f7-28b0771e6237/scratchpad/gen_shader_json.js\" src/main/resources/assets/halloweenevent/shaders/core)",
+      "Bash(node \"/c/Users/PC/AppData/Local/Temp/claude/C--Users-PC-AppData-Local-Claude-Data-claude-pzs8sxrjxfjjc-scratch-workspaces-73d09e55-46ec-412d-ae85-c54934d53130-ea91f1ec-5d17-4e55-b72b-8ce40a584e5b-scratch-2026-10-24-568b26/3e23b340-02e1-4f7a-a4f7-28b0771e6237/scratchpad/patch_se.js\" src/main/java/com/halloweenevent/client/ScareEffects.java)",
+      "Bash(rm -rf /c/Users/PC/.hwbuild/proj/src)",
+      "Bash(cp -r src /c/Users/PC/.hwbuild/proj/)",
+      "Read(//c/Users/PC/.hwbuild/proj/**)",
+      "Bash(export JAVA_HOME=\"/c/Program Files/Java/jdk-17\")",
+      "Bash(./gradlew build *)",
+      "Read(//c/Users/PC/.hwbuild/**)",
+      "Bash('/c/Program Files/Java/jdk-17/bin/javap' -p -c -cp /c/Users/PC/.gradle/caches/forge_gradle/minecraft_user_repo/net/minecraftforge/forge/1.20.1-47.4.20_mapped_official_1.20.1/forge-1.20.1-47.4.20_mapped_official_1.20.1-recomp.jar net.minecraft.client.renderer.ShaderInstance)",
+      "Bash(awk '/static com.mojang.blaze3d.shaders.Program getOrCreate/{f=1} f{print} /areturn/{if\\(f\\){exit}}')",
+      "Bash(cp /c/Users/PC/.hwbuild/proj/build/libs/halloweenevent-1.0.0.jar dist/)",
+      "Bash(unzip -l dist/halloweenevent-1.0.0.jar)",
+      "Bash(awk '{print $4}')",
+      "Bash(sed -i 's/name: '\\\\''FogColor'\\\\''/name: '\\\\''BeamFogColor'\\\\''/' /c/Users/PC/AppData/Local/Temp/claude/C--Users-PC-AppData-Local-Claude-Data-claude-pzs8sxrjxfjjc-scratch-workspaces-73d09e55-46ec-412d-ae85-c54934d53130-ea91f1ec-5d17-4e55-b72b-8ce40a584e5b-scratch-2026-10-24-568b26/3e23b340-02e1-4f7a-a4f7-28b0771e6237/scratchpad/gen_shader_json.js)",
+      "Bash(node /c/Users/PC/AppData/Local/Temp/claude/C--Users-PC-AppData-Local-Claude-Data-claude-pzs8sxrjxfjjc-scratch-workspaces-73d09e55-46ec-412d-ae85-c54934d53130-ea91f1ec-5d17-4e55-b72b-8ce40a584e5b-scratch-2026-10-24-568b26/3e23b340-02e1-4f7a-a4f7-28b0771e6237/scratchpad/gen_shader_json.js src/main/resources/assets/halloweenevent/shaders/core)",
+      "Bash(sed -i 's/uniform vec3 FogColor;/uniform vec3 BeamFogColor;/; s/fragColor = vec4\\(FogColor, /fragColor = vec4\\(BeamFogColor, /' src/main/resources/assets/halloweenevent/shaders/core/flashlight.fsh)",
+      "Bash(grep -rn FogColor src/main/resources/assets/halloweenevent/shaders/core src/main/java/com/halloweenevent/client/FlashlightRenderer.java)",
+      "Bash(node \"/c/Users/PC/AppData/Local/Temp/claude/C--Users-PC-AppData-Local-Claude-Data-claude-pzs8sxrjxfjjc-scratch-workspaces-73d09e55-46ec-412d-ae85-c54934d53130-ea91f1ec-5d17-4e55-b72b-8ce40a584e5b-scratch-2026-10-24-568b26/3e23b340-02e1-4f7a-a4f7-28b0771e6237/scratchpad/patch_fog_server.js\" src/main/java/com/halloweenevent)",
+      "Bash(cd /c/Users/PC/.hwbuild/proj)",
+      "Bash(rm -f src/main/java/com/halloweenevent/item/FlashlightItem.java src/main/java/com/halloweenevent/client/FlashlightRenderer.java src/main/resources/assets/halloweenevent/shaders/core/flashlight* src/main/resources/assets/halloweenevent/models/item/flashlight*.json src/main/resources/assets/halloweenevent/textures/item/flashlight*.png)",
+      "Bash(ls src/main/resources/assets/halloweenevent/shaders/core src/main/java/com/halloweenevent)",
+      "Bash(node \"/c/Users/PC/AppData/Local/Temp/claude/C--Users-PC-AppData-Local-Claude-Data-claude-pzs8sxrjxfjjc-scratch-workspaces-73d09e55-46ec-412d-ae85-c54934d53130-ea91f1ec-5d17-4e55-b72b-8ce40a584e5b-scratch-2026-10-24-568b26/3e23b340-02e1-4f7a-a4f7-28b0771e6237/scratchpad/patch_drag.js\" src/main/java/com/halloweenevent)",
+      "Bash(node -e ' *)"
+    ]
+  }
+}

@@ -1,0 +1,152 @@
+{
+  "whisper": {
+    "subtitle": "subtitles.halloweenevent.whisper",
+    "sounds": [
+      {
+        "name": "minecraft:ambient/nether/soulsand_valley/whisper1",
+        "pitch": 0.75,
+        "volume": 1
+      },
+      {
+        "name": "minecraft:ambient/nether/soulsand_valley/whisper3",
+        "pitch": 0.8,
+        "volume": 1
+      },
+      {
+        "name": "minecraft:ambient/nether/soulsand_valley/whisper5",
+        "pitch": 0.7,
+        "volume": 1
+      },
+      {
+        "name": "minecraft:ambient/nether/soulsand_valley/whisper7",
+        "pitch": 0.75,
+        "volume": 1
+      }
+    ]
+  },
+  "whisper_loud": {
+    "subtitle": "subtitles.halloweenevent.whisper_loud",
+    "sounds": [
+      {
+        "name": "minecraft:ambient/nether/soulsand_valley/voices1",
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:ambient/nether/soulsand_valley/voices3",
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:ambient/nether/soulsand_valley/whisper2",
+        "pitch": 0.5
+      },
+      {
+        "name": "minecraft:ambient/nether/soulsand_valley/whisper8",
+        "pitch": 0.5
+      }
+    ]
+  },
+  "stinger": {
+    "subtitle": "subtitles.halloweenevent.stinger",
+    "sounds": [
+      {
+        "name": "minecraft:mob/endermen/stare",
+        "pitch": 0.5
+      },
+      {
+        "name": "minecraft:ambient/cave/cave14",
+        "pitch": 0.6
+      }
+    ]
+  },
+  "scream": {
+    "subtitle": "subtitles.halloweenevent.scream",
+    "sounds": [
+      {
+        "name": "minecraft:mob/endermen/scream1",
+        "pitch": 0.55
+      },
+      {
+        "name": "minecraft:mob/endermen/scream3",
+        "pitch": 0.5
+      },
+      {
+        "name": "minecraft:mob/endermen/scream4",
+        "pitch": 0.6
+      }
+    ]
+  },
+  "glitch": {
+    "subtitle": "subtitles.halloweenevent.glitch",
+    "sounds": [
+      {
+        "name": "minecraft:random/fizz",
+        "pitch": 0.5,
+        "volume": 0.6
+      },
+      {
+        "name": "minecraft:mob/warden/listening_2",
+        "pitch": 1.6,
+        "volume": 0.6
+      }
+    ]
+  },
+  "heartbeat": {
+    "subtitle": "subtitles.halloweenevent.heartbeat",
+    "sounds": [
+      "minecraft:mob/warden/heartbeat_1",
+      "minecraft:mob/warden/heartbeat_2",
+      "minecraft:mob/warden/heartbeat_3",
+      "minecraft:mob/warden/heartbeat_4"
+    ]
+  },
+  "candy_pickup": {
+    "subtitle": "subtitles.halloweenevent.candy_pickup",
+    "sounds": [
+      {
+        "name": "minecraft:random/orb",
+        "pitch": 1.4,
+        "volume": 0.6
+      }
+    ]
+  },
+  "event_win": {
+    "subtitle": "subtitles.halloweenevent.event_win",
+    "sounds": [
+      "minecraft:random/levelup"
+    ]
+  },
+  "footstep": {
+    "subtitle": "subtitles.halloweenevent.footstep",
+    "sounds": [
+      {
+        "name": "minecraft:mob/warden/step_1",
+        "pitch": 1.3
+      },
+      {
+        "name": "minecraft:mob/warden/step_2",
+        "pitch": 1.3
+      },
+      {
+        "name": "minecraft:mob/warden/step_3",
+        "pitch": 1.3
+      },
+      {
+        "name": "minecraft:mob/warden/step_4",
+        "pitch": 1.3
+      }
+    ]
+  },
+  "grab": {
+    "subtitle": "subtitles.halloweenevent.grab",
+    "sounds": [
+      {
+        "name": "minecraft:mob/endermen/scream2",
+        "pitch": 0.4
+      },
+      {
+        "name": "minecraft:mob/warden/listening_4",
+        "pitch": 0.5
+      }
+    ]
+  }
+}
