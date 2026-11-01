@@ -1,20 +1,27 @@
 package com.halloweenevent.client;
 
 import com.halloweenevent.HalloweenEventMod;
+import com.halloweenevent.item.FlashlightItem;
 import com.halloweenevent.network.C2SFreecamState;
 import com.halloweenevent.network.Net;
+import com.halloweenevent.registry.ModItems;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
+import net.minecraft.client.renderer.item.ItemProperties;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
+import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.client.event.RegisterShadersEvent;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.client.event.RenderGuiEvent;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.minecraftforge.client.event.ViewportEvent;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -38,12 +45,36 @@ public final class ClientEvents {
                 ZoneFogRenderer.shader = null;
                 HalloweenEventMod.LOGGER.error("Zone fog shader failed to load; using vanilla fog instead", e);
             }
+            try {
+                event.registerShader(new ShaderInstance(event.getResourceProvider(),
+                        new ResourceLocation(HalloweenEventMod.MODID, "flashlight"), DefaultVertexFormat.POSITION),
+                        FlashlightRenderer::onShaderLoaded);
+            } catch (IOException | RuntimeException e) {
+                FlashlightRenderer.shader = null;
+                HalloweenEventMod.LOGGER.error("Flashlight shader failed to load; flashlights will give no light", e);
+            }
         }
 
         @SubscribeEvent
         public static void registerOverlays(RegisterGuiOverlaysEvent event) {
             event.registerAboveAll("candy_hud", HudOverlay::render);
             event.registerAboveAll("horror", ScareEffects::renderOverlay);
+        }
+
+        @SubscribeEvent
+        public static void registerKeys(RegisterKeyMappingsEvent event) {
+            if (FlashlightClient.DEBUG_KEY_ENABLED) event.register(FlashlightClient.DEBUG_KEY);
+        }
+
+        /** Model override {@code halloweenevent:on}: the lens goes dark with the light, flicker included. */
+        @SubscribeEvent
+        public static void clientSetup(FMLClientSetupEvent event) {
+            event.enqueueWork(() -> ItemProperties.register(ModItems.FLASHLIGHT.get(),
+                    new ResourceLocation(HalloweenEventMod.MODID, "on"), (stack, level, entity, seed) -> {
+                        if (!FlashlightItem.isOn(stack)) return 0f;
+                        if (!(entity instanceof Player p) || p.level() == null) return 1f;
+                        return FlashlightClient.intensity(p, stack, p.level().getGameTime(), 0f) > 0.25f ? 1f : 0f;
+                    }));
         }
     }
 
@@ -66,6 +97,8 @@ public final class ClientEvents {
             ScareEffects.clientTick(mc);
             ZoneFogRenderer.clientTick();
             CandyRenderer.tickParticles(mc, clientTicks);
+            FlashlightClient.clientTick(mc);
+            FlashlightSelfTest.clientTick(mc);
             guardFreecam(mc);
         }
 
@@ -88,6 +121,7 @@ public final class ClientEvents {
                 CandyRenderer.render(event);
                 ScareEffects.renderFigure(event);
             } else if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_LEVEL) {
+                FlashlightRenderer.onLevelRendered(event);
                 ZoneFogRenderer.onLevelRendered(event);
             }
         }
@@ -95,12 +129,19 @@ public final class ClientEvents {
         /** With a shader pack the frame is final only now, after Oculus composited it. */
         @SubscribeEvent
         public static void onGuiPre(RenderGuiEvent.Pre event) {
+            FlashlightRenderer.renderAfterShaderPack();
             ZoneFogRenderer.renderAfterShaderPack();
         }
 
         @SubscribeEvent
         public static void onCameraAngles(ViewportEvent.ComputeCameraAngles event) {
             ScareEffects.cameraAngles(event);
+        }
+
+        /** Last, after every mod changed it: the roll the level is really drawn with (depth passes rebuild the view). */
+        @SubscribeEvent(priority = EventPriority.LOWEST)
+        public static void recordCameraRoll(ViewportEvent.ComputeCameraAngles event) {
+            FlashlightRenderer.cameraRoll = event.getRoll();
         }
 
         @SubscribeEvent
@@ -118,6 +159,8 @@ public final class ClientEvents {
             ClientState.reset();
             ScareEffects.stopAll();
             ZoneFogRenderer.reset();
+            FlashlightRenderer.reset();
+            FlashlightClient.reset();
             lastFreecam = clientTicks - FREECAM_REPORT_TICKS;
             freecamReported = false;
         }

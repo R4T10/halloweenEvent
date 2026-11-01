@@ -357,3 +357,48 @@ function tileNoise(size, cells, seedOffset) {
   }
   img.scaled(2).save('misc/screen_hand.png');
 }
+
+// ---------- item: flashlight (16x16), off and lit ----------
+// A diagonal torch: grip bottom-left, head and lens top-right. Built along an axis so the 45° edges stay clean.
+{
+  const ax = 2.5, ay = 13.5, bx = 12.6, by = 3.4;
+  const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy);
+  const ux = dx / len, uy = dy / len;
+  const shape = (x, y) => {
+    const t = ((x - ax) * ux + (y - ay) * uy) / len;
+    const s = (x - ax) * -uy + (y - ay) * ux;          // signed side distance (negative = upper-left)
+    if (t < -0.02 || t > 1.02) return null;
+    const head = t > 0.68;
+    const r = head ? 2.7 : t > 0.6 ? 1.6 + (t - 0.6) / 0.08 * 1.1 : 1.6;
+    if (Math.abs(s) > r) return null;
+    return { t, s, head, lens: t > 0.9 };
+  };
+  for (const lit of [false, true]) {
+    const img = new Img(16, 16);
+    const P = { k: 0x101014, body: 0x3a3c44, bodyHi: 0x5c606c, bodyLo: 0x24252b, ring: 0x18191d,
+      head: 0x8a8e98, headHi: 0xc4c8d0, headLo: 0x5a5e68,
+      lens: lit ? 0xfff2c0 : 0x5a6878, lensHi: lit ? 0xffffff : 0x8a9aac, button: lit ? 0xd84a2a : 0x7a2a1a };
+    const fill = [];
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const h = shape(x + 0.5, y + 0.5);
+      if (!h) continue;
+      let c;
+      if (h.lens) c = h.s < -0.6 ? P.lensHi : P.lens;
+      else if (h.head) c = h.s < -1.2 ? P.headHi : h.s > 1.2 ? P.headLo : P.head;
+      else {
+        c = h.s < -0.5 ? P.bodyHi : h.s > 0.7 ? P.bodyLo : P.body;
+        const ringAt = [0.12, 0.24, 0.36];
+        if (ringAt.some(r => Math.abs(h.t - r) < 0.035)) c = P.ring;
+        if (Math.abs(h.t - 0.5) < 0.05 && h.s < 0.2 && h.s > -1.2) c = P.button;
+      }
+      fill.push([x, y, c]);
+    }
+    const filled = new Set(fill.map(([x, y]) => x + ',' + y));
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      if (filled.has(x + ',' + y)) continue;
+      if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([ox, oy]) => filled.has((x + ox) + ',' + (y + oy)))) img.set(x, y, P.k);
+    }
+    for (const [x, y, c] of fill) img.set(x, y, c);
+    img.save(lit ? 'item/flashlight_on.png' : 'item/flashlight.png');
+  }
+}

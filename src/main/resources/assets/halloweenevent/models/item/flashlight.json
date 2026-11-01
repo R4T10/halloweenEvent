@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:item/handheld",
+  "textures": {
+    "layer0": "halloweenevent:item/flashlight"
+  },
+  "overrides": [
+    { "predicate": { "halloweenevent:on": 1 }, "model": "halloweenevent:item/flashlight_on" }
+  ]
+}

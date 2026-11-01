@@ -21,13 +21,23 @@ minecraft {
         configureEach {
             workingDirectory project.file('run')
             property 'forge.logging.console.level', 'info'
+            // Mixin mods in the dev run (Embeddium, Oculus) ship SRG refmaps; remap them to the dev names.
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
             mods {
                 "${mod_id}" {
                     source sourceSets.main
                 }
             }
         }
-        client {}
+        client {
+            // gradlew runClient -PflashlightTest: opens the "flashlight_test" save (a copy, it gets blocks built
+            // in it) and runs the automated flashlight screenshots (client/FlashlightSelfTest).
+            if (project.hasProperty('flashlightTest')) {
+                args '--quickPlaySingleplayer', 'flashlight_test', '--width', '1920', '--height', '1080'
+                property 'halloweenevent.flashlightSelfTest', 'true'
+            }
+        }
         server {
             args '--nogui'
         }
@@ -39,6 +49,11 @@ repositories {
     flatDir {
         dirs 'libs'
     }
+    // Embeddium + Oculus for testing shader packs in runClient only.
+    maven {
+        url = 'https://api.modrinth.com/maven'
+        content { includeGroup 'maven.modrinth' }
+    }
 }
 
 dependencies {
@@ -48,6 +63,10 @@ dependencies {
     compileOnly fg.deobf("blank:holdhands:1.1.4")
     compileOnly fg.deobf("blank:carryon:2.1.2.7")
     compileOnly fg.deobf("blank:freecam:1.1.1")
+
+    // Dev client only (never bundled): shader packs in runClient. Packs go in run/shaderpacks.
+    runtimeOnly fg.deobf("maven.modrinth:embeddium:0.3.31+mc1.20.1")
+    runtimeOnly fg.deobf("maven.modrinth:oculus:1.20.1-1.7.0")
 }
 
 tasks.named('processResources', ProcessResources).configure {

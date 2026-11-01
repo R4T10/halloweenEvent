@@ -9,7 +9,7 @@ import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.network.simple.SimpleChannel;
 
 public final class Net {
-    private static final String VERSION = "3";
+    private static final String VERSION = "5";
     /**
      * Servers require the mod on clients; clients may still join servers without it
      * (they never send anything unless the server has activated the event or opened the admin screen).
@@ -37,8 +37,7 @@ public final class Net {
         CHANNEL.messageBuilder(C2SFreecamState.class, id++, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(C2SFreecamState::encode).decoder(C2SFreecamState::decode).consumerMainThread(C2SFreecamState::handle).add();
         CHANNEL.messageBuilder(S2CHandGrab.class, id++, NetworkDirection.PLAY_TO_CLIENT)
-                .encoder(S2CHandGrab::encode).decoder(S2CHandGrab::decode).consumerMainThread(S2CHandGrab::handle).add();
-    }
+                .encoder(S2CHandGrab::encode).decoder(S2CHandGrab::decode).consumerMainThread(S2CHandGrab::handle).add();    }
 
     public static void toPlayer(ServerPlayer player, Object msg) {
         CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), msg);

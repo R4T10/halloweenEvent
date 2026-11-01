@@ -5,9 +5,14 @@ import com.halloweenevent.compat.CarryOnCompat;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.EntityJoinLevelEvent;
+import net.minecraftforge.event.entity.item.ItemTossEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.event.entity.living.LivingDropsEvent;
+import net.minecraftforge.event.entity.player.PlayerContainerEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
@@ -21,7 +26,37 @@ public final class ServerEvents {
 
     @SubscribeEvent
     public static void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase == TickEvent.Phase.END) EventManager.tick(event.getServer());
+        if (event.phase != TickEvent.Phase.END) return;
+        EventManager.tick(event.getServer());
+        Flashlights.tick(event.getServer());
+    }
+
+    // ---- the event flashlight never leaves its owner's inventory ----
+
+    @SubscribeEvent
+    public static void onToss(ItemTossEvent event) {
+        if (event.getPlayer() instanceof ServerPlayer sp && Flashlights.onToss(sp, event.getEntity().getItem())) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onDrops(LivingDropsEvent event) {
+        if (event.getEntity() instanceof ServerPlayer) {
+            event.getDrops().removeIf(Flashlights::blocksItemEntity);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onItemEntity(EntityJoinLevelEvent event) {
+        if (!event.getLevel().isClientSide() && event.getEntity() instanceof ItemEntity item && Flashlights.blocksItemEntity(item)) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onContainerClose(PlayerContainerEvent.Close event) {
+        if (event.getEntity() instanceof ServerPlayer sp) Flashlights.onContainerClosed(sp, event.getContainer());
     }
 
     @SubscribeEvent

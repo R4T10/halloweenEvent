@@ -53,7 +53,21 @@ public final class HalloweenCommand {
                         .then(Commands.literal("grab")
                                 .executes(ctx -> testGrab(ctx, self(ctx)))
                                 .then(Commands.argument("player", EntityArgument.player())
-                                        .executes(ctx -> testGrab(ctx, EntityArgument.getPlayer(ctx, "player")))))));
+                                        .executes(ctx -> testGrab(ctx, EntityArgument.getPlayer(ctx, "player")))))
+                        .then(Commands.literal("flashlight")
+                                .executes(ctx -> testFlashlight(ctx, self(ctx)))
+                                .then(Commands.argument("player", EntityArgument.player())
+                                        .executes(ctx -> testFlashlight(ctx, EntityArgument.getPlayer(ctx, "player")))))));
+    }
+
+    private static int testFlashlight(CommandContext<CommandSourceStack> ctx, ServerPlayer target) {
+        if (!Flashlights.kill(target)) {
+            ctx.getSource().sendFailure(Component.translatable("cmd.halloweenevent.test_flashlight_failed"));
+            return 0;
+        }
+        ctx.getSource().sendSuccess(() -> Component.translatable("cmd.halloweenevent.test",
+                "flashlight", target.getDisplayName()), false);
+        return 1;
     }
 
     private static ServerPlayer self(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {

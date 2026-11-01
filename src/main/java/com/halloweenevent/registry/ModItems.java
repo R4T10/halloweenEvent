@@ -1,6 +1,7 @@
 package com.halloweenevent.registry;
 
 import com.halloweenevent.HalloweenEventMod;
+import com.halloweenevent.item.FlashlightItem;
 import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
@@ -17,6 +18,8 @@ public final class ModItems {
     public static final RegistryObject<Item> CANDY_CORN = candy("candy_corn");
     public static final RegistryObject<Item> LOLLIPOP = candy("lollipop");
     public static final RegistryObject<Item> WRAPPED_CANDY = candy("wrapped_candy");
+    /** Event-only: handed out inside the zone, never in a creative tab. */
+    public static final RegistryObject<Item> FLASHLIGHT =ITEMS.register("flashlight", () -> new FlashlightItem(new Item.Properties()));
 
     /** Spawn variants, indexed by {@code CandySpawn.variant}. */
     public static final List<RegistryObject<Item>> VARIANTS = List.of(CANDY_CORN, LOLLIPOP, WRAPPED_CANDY);

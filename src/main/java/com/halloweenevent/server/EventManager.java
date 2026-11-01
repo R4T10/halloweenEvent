@@ -97,9 +97,12 @@ public final class EventManager {
         if (!GRABS.isEmpty()) tickGrabs(server, server.getTickCount());
         if (ticks % UPDATE_INTERVAL != 0) return;
         EventData d = EventData.get(server);
-        if (!d.active) return;
         AABB zone = d.zone();
-        if (zone == null) return;
+        if (!d.active || zone == null) {
+            // No event: nobody keeps a flashlight (spares from creative, a crash mid-event, ...).
+            if (ticks % 20 == 0) Flashlights.stripAll(server);
+            return;
+        }
         long now = server.getTickCount();
         for (ServerPlayer sp : server.getPlayerList().getPlayers()) {
             updatePlayer(sp, d, now);
@@ -117,6 +120,8 @@ public final class EventManager {
         } else if (!inside && s.inside) {
             exit(sp, d, s, true);
         }
+        int fear = Mth.clamp(d.levelFor(sp.getUUID()), 1, 3);
+        Flashlights.syncInventory(sp, inside, fear);
         if (!inside) return;
 
         boolean holding = HoldHandsCompat.isHolding(sp);
@@ -128,6 +133,7 @@ public final class EventManager {
         if (!p.completed) {
             if (p.count < d.target) collectCandies(sp, d, p, now);
             updateHoldScares(sp, d, s, now);
+            Flashlights.randomKill(sp, s.holding, now, fear);
         }
         updateCarry(sp, d, s, now);
         updateGrab(sp, d, s, now);
@@ -212,8 +218,10 @@ public final class EventManager {
         } else if (s.stage == 1 && alone >= TEXT_TICKS) {
             s.stage = 2;
             sendScare(sp, s, S2CScare.TEXT, level);
+            if (level >= 2) Flashlights.kill(sp);
         } else if (s.stage == 2 && alone >= FIGURE_TICKS) {
             sendScare(sp, s, S2CScare.FIGURE, level);
+            Flashlights.kill(sp);
             if (level >= 3) {
                 applyFog(sp, s, MobEffects.BLINDNESS, 50);
                 sp.hurt(sp.damageSources().magic(), 1.0f);
@@ -316,6 +324,7 @@ public final class EventManager {
         double dx = target.x - victim.getX(), dz = target.z - victim.getZ();
         double len = Math.max(0.01, Math.sqrt(dx * dx + dz * dz));
         GRABS.add(new Grab(victim.getUUID(), partner != null ? partner.getUUID() : victim.getUUID(), target, now));
+        Flashlights.kill(victim);
         S2CHandGrab msg = new S2CHandGrab(victim.getId(), (float) (dx / len), (float) (dz / len));
         Net.toPlayer(victim, msg);
         if (partner != null) Net.toPlayer(partner, msg);
@@ -476,6 +485,7 @@ public final class EventManager {
         }
         d.active = false;
         d.setDirty();
+        Flashlights.stripAll(server);
         SESSIONS.clear();
         SHARED_TAKEN.clear();
         GRABS.clear();
@@ -492,6 +502,7 @@ public final class EventManager {
 
     public static void onLogout(ServerPlayer sp) {
         Session s = SESSIONS.remove(sp.getUUID());
+        Flashlights.forget(sp.getUUID());
         if (s != null && s.fogApplied) {
             sp.removeEffect(MobEffects.DARKNESS);
             sp.removeEffect(MobEffects.BLINDNESS);
