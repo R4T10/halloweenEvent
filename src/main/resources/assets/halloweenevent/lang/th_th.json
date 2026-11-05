@@ -128,5 +128,7 @@
   "horror.halloweenevent.chase_end": "ครั้งหน้า... ไม่รอดแน่",
   "gui.halloweenevent.grab_info3": "แล้วไล่ล่าคนนั้น 10 วินาที (เห็นคนเดียว)",
   "cmd.halloweenevent.test": "ทดสอบ %s กับ %s แล้ว",
-  "cmd.halloweenevent.test_grab_failed": "ทดสอบลากไม่ได้: ต้องเริ่มกิจกรรม ยืนอยู่ในโซน และมีพื้นที่ว่างห่างออกไปราว 10 บล็อก"
+  "cmd.halloweenevent.test_grab_not_holding": "%s ต้องจับมือกับผู้เล่นอีกคนก่อน (กด H ใส่กัน) แล้วค่อยรันคำสั่งนี้",
+  "cmd.halloweenevent.test_grab_busy": "%s หรือคู่ของเขากำลังถูกลากอยู่ รอให้จบก่อน",
+  "cmd.halloweenevent.test_grab_no_spot": "ไม่พบจุดที่ยืนได้ห่างจากคู่ราว 10 บล็อกของ %s ลองไปที่โล่งกว่านี้"
 }

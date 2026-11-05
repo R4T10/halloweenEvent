@@ -73,13 +73,16 @@ public final class EventManager {
         final UUID partner;
         final Vec3 target;
         final long start;
+        /** Admin test: keeps running even when the victim is outside the zone or the event is stopped. */
+        final boolean test;
         int step;
 
-        Grab(UUID victim, UUID partner, Vec3 target, long start) {
+        Grab(UUID victim, UUID partner, Vec3 target, long start, boolean test) {
             this.victim = victim;
             this.partner = partner;
             this.target = target;
             this.start = start;
+            this.test = test;
         }
     }
 
@@ -306,42 +309,47 @@ public final class EventManager {
         boolean first = sp.getRandom().nextBoolean();
         ServerPlayer victim = first ? sp : partner;
         ServerPlayer other = first ? partner : sp;
-        Vec3 target = findDragTarget(victim, other, d);
+        Vec3 target = findDragTarget(victim, other, d.zone());
         if (target == null) return;
-        startGrab(victim, other, target, now);
+        startGrab(victim, other, target, now, false);
     }
 
-    /** @param partner may be {@code null} (admin test without a partner): nothing to release, nobody else notified. */
-    private static void startGrab(ServerPlayer victim, ServerPlayer partner, Vec3 target, long now) {
+    private static void startGrab(ServerPlayer victim, ServerPlayer partner, Vec3 target, long now, boolean test) {
         double dx = target.x - victim.getX(), dz = target.z - victim.getZ();
         double len = Math.max(0.01, Math.sqrt(dx * dx + dz * dz));
-        GRABS.add(new Grab(victim.getUUID(), partner != null ? partner.getUUID() : victim.getUUID(), target, now));
+        GRABS.add(new Grab(victim.getUUID(), partner.getUUID(), target, now, test));
         S2CHandGrab msg = new S2CHandGrab(victim.getId(), (float) (dx / len), (float) (dz / len));
         Net.toPlayer(victim, msg);
-        if (partner != null) Net.toPlayer(partner, msg);
+        Net.toPlayer(partner, msg);
     }
 
     /**
-     * Admin test: start a drag right now. Needs an active event with the player inside the zone. Uses their
-     * hand-holding partner as the anchor if they have one, otherwise drags them ~10 blocks from where they stand.
+     * Admin test: drag {@code victim} away from the player they are holding hands with, right now, every time.
+     * Works anywhere: no running event, no zone and no random chance needed. The drag target is any standable
+     * spot about {@value #DRAG_DISTANCE} blocks from the partner, inside the zone when the pair is standing in it.
+     *
+     * @return {@code null} when the drag started, otherwise the translation key explaining why not
      */
-    public static boolean testGrab(ServerPlayer victim) {
-        EventData d = EventData.get(victim.server);
-        if (!d.active || !isInside(victim.getUUID()) || inGrab(victim.getUUID())) return false;
+    public static String testGrab(ServerPlayer victim) {
         ServerPlayer partner = HoldHandsCompat.partner(victim);
-        Vec3 target = findDragTarget(victim, partner != null ? partner : victim, d);
-        if (target == null) return false;
-        startGrab(victim, partner, target, victim.server.getTickCount());
-        return true;
+        if (partner == null) return "cmd.halloweenevent.test_grab_not_holding";
+        if (inGrab(victim.getUUID()) || inGrab(partner.getUUID())) return "cmd.halloweenevent.test_grab_busy";
+        EventData d = EventData.get(victim.server);
+        Vec3 target = findDragTarget(victim, partner, d.isInZone(partner) ? d.zone() : null);
+        if (target == null) return "cmd.halloweenevent.test_grab_no_spot";
+        startGrab(victim, partner, target, victim.server.getTickCount(), true);
+        return null;
     }
 
-    /** A random standable spot inside the zone, about {@value #DRAG_DISTANCE} blocks from the partner. */
-    private static Vec3 findDragTarget(ServerPlayer victim, ServerPlayer partner, EventData d) {
-        AABB zone = d.zone();
-        if (zone == null) return null;
+    /**
+     * A random standable spot about {@value #DRAG_DISTANCE} blocks from the partner.
+     *
+     * @param zone the spot must lie inside it; {@code null} means no restriction
+     */
+    private static Vec3 findDragTarget(ServerPlayer victim, ServerPlayer partner, AABB zone) {
         ServerLevel level = victim.serverLevel();
         RandomSource r = victim.getRandom();
-        for (int attempt = 0; attempt < 24; attempt++) {
+        for (int attempt = 0; attempt < 48; attempt++) {
             double angle = r.nextDouble() * Math.PI * 2;
             double dist = DRAG_DISTANCE - 1 + r.nextDouble() * 2;
             double x = partner.getX() + Math.cos(angle) * dist;
@@ -350,7 +358,7 @@ public final class EventManager {
             for (int i = 0; i < 10; i++, m.move(Direction.DOWN)) {
                 if (!standable(level, m)) continue;
                 Vec3 spot = new Vec3(m.getX() + 0.5, m.getY(), m.getZ() + 0.5);
-                if (zone.contains(spot.add(0, 0.5, 0))) return spot;
+                if (zone == null || zone.contains(spot.add(0, 0.5, 0))) return spot;
                 break;
             }
         }
@@ -381,7 +389,7 @@ public final class EventManager {
         while (it.hasNext()) {
             Grab g = it.next();
             ServerPlayer victim = server.getPlayerList().getPlayer(g.victim);
-            if (victim == null || !victim.isAlive() || !isInside(g.victim)) {
+            if (victim == null || !victim.isAlive() || (!g.test && !isInside(g.victim))) {
                 it.remove();
                 continue;
             }

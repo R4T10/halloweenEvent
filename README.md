@@ -91,15 +91,25 @@ with *Freecam guard* if you run cutscenes there.
 
 ## Fog, figures, glitches (shader packs)
 
-- **Fog**: from 15 s alone the server applies vanilla Darkness (hidden icon, no particles); level 3 adds a
-  2.5 s Blindness pulse at the figure. Shader packs on Oculus read these through Iris' `darknessFactor` /
-  `blindness` uniforms, so the fog shows with Complementary, BSL, etc. On top of that the client draws a
-  drifting mist + vignette as a GUI layer (works with any shader pack) and thickens vanilla fog when no
-  shader pack is active. Holding a hand again removes it.
-- **Figures**: four cuboid models (ModelPart, like vanilla mobs), picked at random, never the same twice in
-  a row: *Tall* (3 blocks, arms to the knees, tilted head), *Smiler* (huge head, ear-to-ear grin),
-  *Broken* (snapped neck, reaching arms, backwards knees), *Crawler* (on all fours, crawls towards you).
-  They twitch, flicker in, trail smoke, and at level 3 lunge into your face.
+- **Fog**: see *Zone fog* below. Level 3 adds a 2.5 s vanilla Blindness pulse at the figure, which shader
+  packs honour too.
+- **Figures**: four original cuboid models (ModelPart, like vanilla mobs), picked at random, never the same
+  twice in a row:
+  - *Hatted*: ~3 blocks, floating ragged cloak with swaying tatters, wide-brim hat with a red band, long pale
+    cracked mask with red-rimmed eyes and a red-gummed grin, long black hair. Appearing triggers the
+    hypnosis eye.
+  - *Red Thin*: ~3.4 blocks, red ribbed flesh fading to black limbs, very long neck, tiny head with dot eyes
+    that never blink; turns its head too far, too slowly.
+  - *Grinner*: hunched black furry beast, floppy ears, big glowing red eyes, wide grin of small teeth,
+    dog-like head tilt.
+  - *Crawler*: on all fours, spine ridges, crawls towards you.
+
+  All have animated eyes: they blink, glance away and snap back to stare at you, pulse, and go wide with
+  pin-prick pupils when lunging. They twitch, flicker in, trail smoke, and at level 3 lunge into your face.
+- **Screen eyes** (GUI layer, any shader pack): almond eyes open around the screen edges, blink and stare at
+  the centre (15 s scare at level 2+, grab, chase start); at a level 3 lunge or when the chaser catches you the
+  whole screen fills with eyes. The *hypnosis eye* is a big red eye with a rotating spiral iris that makes the
+  field of view breathe. Test with `/halloween test eyes`, `/halloween test eyes wall`, `/halloween test hypno`.
 - **Glitch**: always a GUI overlay (TV static strips, colour bars, corrupted blocks, scanlines, dropped
   frames). Without a shader pack it also loads `halloweenevent:shaders/post/glitch.json`
   (row tearing, RGB split, block corruption, red/invert flashes). With an Oculus shader pack active the post

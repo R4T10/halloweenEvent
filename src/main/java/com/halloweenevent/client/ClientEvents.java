@@ -64,6 +64,7 @@ public final class ClientEvents {
             if (mc.player == null || mc.level == null) return;
             clientTicks++;
             ScareEffects.clientTick(mc);
+            ScreenEyes.clientTick();
             ZoneFogRenderer.clientTick();
             CandyRenderer.tickParticles(mc, clientTicks);
             guardFreecam(mc);
@@ -101,6 +102,11 @@ public final class ClientEvents {
         @SubscribeEvent
         public static void onCameraAngles(ViewportEvent.ComputeCameraAngles event) {
             ScareEffects.cameraAngles(event);
+        }
+
+        @SubscribeEvent
+        public static void onComputeFov(ViewportEvent.ComputeFov event) {
+            ScreenEyes.fov(event);
         }
 
         @SubscribeEvent

@@ -46,6 +46,12 @@ public final class HalloweenCommand {
                                         .then(Commands.argument("player", EntityArgument.player())
                                                 .executes(ctx -> testFigure(ctx, EntityArgument.getPlayer(ctx, "player"),
                                                         IntegerArgumentType.getInteger(ctx, "level"))))))
+                        .then(Commands.literal("eyes")
+                                .executes(ctx -> testScare(ctx, self(ctx), S2CScare.EYES, 0, "eyes"))
+                                .then(Commands.literal("wall")
+                                        .executes(ctx -> testScare(ctx, self(ctx), S2CScare.EYES, 1, "eyes wall"))))
+                        .then(Commands.literal("hypno")
+                                .executes(ctx -> testScare(ctx, self(ctx), S2CScare.HYPNO, 0, "hypno")))
                         .then(Commands.literal("chase")
                                 .executes(ctx -> testChase(ctx, self(ctx)))
                                 .then(Commands.argument("player", EntityArgument.player())
@@ -67,6 +73,12 @@ public final class HalloweenCommand {
         return 1;
     }
 
+    private static int testScare(CommandContext<CommandSourceStack> ctx, ServerPlayer target, int type, int level, String name) {
+        Net.toPlayer(target, new S2CScare(type, level));
+        ctx.getSource().sendSuccess(() -> Component.translatable("cmd.halloweenevent.test", name, target.getDisplayName()), false);
+        return 1;
+    }
+
     private static int testChase(CommandContext<CommandSourceStack> ctx, ServerPlayer target) {
         Net.toPlayer(target, new S2CScare(S2CScare.CHASE, 0));
         ctx.getSource().sendSuccess(() -> Component.translatable("cmd.halloweenevent.test",
@@ -75,8 +87,9 @@ public final class HalloweenCommand {
     }
 
     private static int testGrab(CommandContext<CommandSourceStack> ctx, ServerPlayer target) {
-        if (!EventManager.testGrab(target)) {
-            ctx.getSource().sendFailure(Component.translatable("cmd.halloweenevent.test_grab_failed"));
+        String error = EventManager.testGrab(target);
+        if (error != null) {
+            ctx.getSource().sendFailure(Component.translatable(error, target.getDisplayName()));
             return 0;
         }
         ctx.getSource().sendSuccess(() -> Component.translatable("cmd.halloweenevent.test",

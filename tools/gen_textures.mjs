@@ -244,28 +244,66 @@ const PUMPKIN_ICON = [
   img.scaled(4).save('misc/horror_face.png');
 }
 
-// ---------- figure skin (128x128) for the cuboid shadow figures ----------
-// Dark mottled skin everywhere, plus solid material blocks used by eyes/teeth/mouth:
-// void black (96..127, 32..63), red (96..127, 64..95), glowing white (96..127, 96..127).
+// ---------- figure skin (256x256 atlas) for the cuboid shadow figures ----------
+// Regions (u, v):
+//   0..127 x 0..127   dark mottled skin with dark-red veins      (TALL silhouettes, crawler)
+//   96 x 32 / 64 / 96 void black / blood red / glowing white      (32x32 each, inside the block above)
+//   128..255 x 0..63  red flesh with rib striations                (thin red figure)
+//   128..255 x 64..127 black fur with a faint sheen                (grinning beast)
+//   0..63 x 128..191  pale cracked mask                            (hatted figure's face)
+//   64..95 x 128..159 wet red gums                                 (open grins)
+//   96..127 x 128..159 glowing red iris                            (beast eyes, mask eye rims)
+//   128..255 x 128..255 ragged black cloak with vertical streaks   (hat, cloak, hair, rags)
+//   0..127 x 192..255 red fading to black                          (thin figure's limbs)
 {
-  const img = new Img(128, 128);
-  const skin = [0xff060608, 0xff0b0a0d, 0xff100e13, 0xff08070a];
-  for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
-    let c = skin[Math.floor(rnd() * skin.length)];
-    if (rnd() < 0.03) c = 0xff1c1622;
-    img.set(x, y, c);
-  }
-  // thin dark-red veins
+  const img = new Img(256, 256);
+  const region = (x0, y0, w, h, fn) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) img.set(x, y, fn(x - x0, y - y0)); };
+  const pick = arr => arr[Math.floor(rnd() * arr.length)];
+
+  const dark = [0xff060608, 0xff0b0a0d, 0xff100e13, 0xff08070a];
+  region(0, 0, 128, 128, () => rnd() < 0.03 ? 0xff1c1622 : pick(dark));
   for (let v = 0; v < 14; v++) {
     let x = Math.floor(rnd() * 96), y = Math.floor(rnd() * 128);
-    for (let i = 0; i < 12; i++) {
-      img.set(x, y, 0xff240a10);
-      x += Math.floor(rnd() * 3) - 1; y += 1;
-    }
+    for (let i = 0; i < 12; i++) { img.set(x, y, 0xff240a10); x += Math.floor(rnd() * 3) - 1; y += 1; }
   }
   img.rect(96, 32, 32, 32, 0xff000000);
-  for (let y = 64; y < 96; y++) for (let x = 96; x < 128; x++) img.set(x, y, rnd() < 0.2 ? 0xff5a0000 : 0xff8a0000);
-  for (let y = 96; y < 128; y++) for (let x = 96; x < 128; x++) img.set(x, y, rnd() < 0.15 ? 0xffe8e6e0 : 0xfffcfcf8);
+  region(96, 64, 32, 32, () => rnd() < 0.2 ? 0xff5a0000 : 0xff8a0000);
+  region(96, 96, 32, 32, () => rnd() < 0.15 ? 0xffe8e6e0 : 0xfffcfcf8);
+
+  // red flesh: horizontal rib bands every 4 px, darker in the grooves
+  region(128, 0, 128, 64, (x, y) => {
+    const groove = y % 4 === 0 || (y % 4 === 1 && rnd() < 0.3);
+    if (groove) return rnd() < 0.5 ? 0xff5a0606 : 0xff4a0404;
+    return pick([0xffa01010, 0xff9a0c0c, 0xffb01414, 0xff8e0a0a]);
+  });
+  // black fur: short vertical strands
+  region(128, 64, 128, 64, (x, y) => {
+    const strand = (x * 7 + Math.floor(y / 3) * 13) % 5 === 0;
+    return strand ? (rnd() < 0.5 ? 0xff1e1a22 : 0xff16131a) : pick([0xff040405, 0xff08080a, 0xff0a090c]);
+  });
+  // pale mask with a few hairline cracks
+  region(0, 128, 64, 64, () => pick([0xffe6e1d8, 0xffdedad0, 0xffeae6de, 0xffd6d0c4]));
+  for (let c = 0; c < 6; c++) {
+    let x = Math.floor(rnd() * 64), y = 128 + Math.floor(rnd() * 64);
+    for (let i = 0; i < 8; i++) { img.set(x, y, 0xffa8a094); x += Math.floor(rnd() * 3) - 1; y += 1; }
+  }
+  region(64, 128, 32, 32, () => pick([0xffb02030, 0xffc02838, 0xff9a1828, 0xffd04050]));
+  region(96, 128, 32, 32, (x, y) => {
+    const d = Math.hypot(x - 15.5, y - 15.5) / 16;
+    return d < 0.5 ? 0xffff3020 : d < 0.8 ? 0xffd01010 : 0xff8a0606;
+  });
+  // cloak: near-black with faint purple vertical streaks
+  region(128, 128, 128, 128, (x) => {
+    const streak = (x * 31) % 11 < 1;
+    return streak ? (rnd() < 0.6 ? 0xff1a1220 : 0xff140e18) : pick([0xff050406, 0xff070608, 0xff09080b]);
+  });
+  // red to black gradient (top red, bottom black) for limbs
+  region(0, 192, 128, 64, (x, y) => {
+    const t = y / 63 + (rnd() - 0.5) * 0.15;
+    if (t < 0.35) return pick([0xff8e0a0a, 0xff9a0c0c]);
+    if (t < 0.7) return pick([0xff4a0404, 0xff3a0303]);
+    return pick([0xff0a0405, 0xff060304]);
+  });
   img.save('entity/figure_skin.png');
 }
 
@@ -356,4 +394,74 @@ function tileNoise(size, cells, seedOffset) {
     img.set(x, y, c);
   }
   img.scaled(2).save('misc/screen_hand.png');
+}
+
+// ---------- screen eyes (art at 32x16 / 16x16, saved x2) ----------
+// Drawn in three layers: sclera, then a moving iris, then a lid mask (black blob with an almond hole that opens
+// over 4 frames). The lid frame is drawn 1.25x the sclera so its hole matches the sclera exactly.
+const lens = (dx, dy, rx, ry) => Math.abs(dy) <= ry * (1 - (dx / rx) ** 2) && Math.abs(dx) <= rx;
+{
+  const img = new Img(32, 16);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 32; x++) {
+    const dx = x + 0.5 - 16, dy = y + 0.5 - 8;
+    if (!lens(dx, dy, 16, 8)) continue;
+    const edge = Math.abs(dx) / 16;
+    let c = edge > 0.85 ? 0xffb01428 : edge > 0.7 ? 0xffd05068 : 0xffe8c8cc;
+    if (rnd() < 0.06) c = 0xffc87884;
+    img.set(x, y, c);
+  }
+  for (const side of [-1, 1]) {                       // tear ducts and veins from the corners
+    img.set(16 + side * 15 - (side > 0 ? 1 : 0), 8, 0xffff4060);
+    let x = side > 0 ? 28 : 3, y = 8;
+    for (let i = 0; i < 6; i++) { img.set(x, y, 0xffa01020); x -= side; y += rnd() < 0.5 ? 1 : -1; y = Math.max(5, Math.min(10, y)); }
+  }
+  img.scaled(2).save('misc/eye_sclera.png');
+}
+{
+  const img = new Img(16, 16);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 8);
+    if (d > 7.5) continue;
+    img.set(x, y, d > 6.5 ? 0xff3a0008 : 0xff020203);
+  }
+  img.rect(5, 4, 2, 2, 0xffffffff);
+  img.scaled(2).save('misc/eye_iris.png');
+}
+{
+  const img = new Img(32, 64);
+  const opens = [0, 0.35, 0.7, 1];
+  opens.forEach((open, f) => {
+    const oy = f * 16;
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 32; x++) {
+      const dx = x + 0.5 - 16, dy = y + 0.5 - 8;
+      if ((dx / 15.5) ** 2 + (dy / 7.5) ** 2 > 1) continue;
+      if (open > 0 && lens(dx, dy, 12.8, 6.4 * open)) continue;   // the opening
+      img.set(x, oy + y, 0xff020203);
+    }
+    if (open === 0) for (let x = 4; x < 28; x++) img.set(x, oy + 8, 0xff7a0a0a); // closed lash line
+    for (let a = 0; a < 3; a++) {                                       // red sketch strokes above
+      const yb = 1 + a;
+      for (let x = 6 + a * 2; x < 26 - a * 2; x++) {
+        const curve = Math.round(((x - 16) / 10) ** 2 * 2);
+        if (rnd() < 0.8) img.set(x, oy + yb + curve, a === 1 ? 0xff9a1010 : 0xff6a0808);
+      }
+    }
+  });
+  img.scaled(2).save('misc/eye_lids.png');
+}
+{
+  const img = new Img(32, 32);
+  for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+    const dx = x + 0.5 - 16, dy = y + 0.5 - 16, d = Math.hypot(dx, dy);
+    if (d > 15.5) continue;
+    let c = d > 14 ? 0xff3a0008 : 0xff050203;
+    const ang = Math.atan2(dy, dx);
+    // Archimedean spiral r = 0.9 * theta (about 2.5 turns): on-line when the distance to the nearest arm is small
+    let t = (d / 0.9 - ang) / (2 * Math.PI);
+    const arm = Math.abs(t - Math.round(t)) * 2 * Math.PI * 0.9;
+    if (d < 14 && arm < 0.9) c = d < 4 ? 0xffff5040 : 0xffd01818;
+    img.set(x, y, c);
+  }
+  img.rect(10, 9, 2, 2, 0xffffffff);
+  img.scaled(2).save('misc/eye_spiral.png');
 }
