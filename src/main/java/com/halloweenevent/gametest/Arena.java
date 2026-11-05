@@ -121,6 +121,14 @@ public final class Arena {
     // ---- bots ----
 
     public ServerPlayer bot(String name, int x, int y, int z) {
+        ServerPlayer bot = createBot(server, level, name);
+        BOTS.add(bot);
+        moveTo(bot, x, y, z);
+        return bot;
+    }
+
+    /** A bot placed in the player list, not yet positioned. Also used by the dev client's automated tests. */
+    public static ServerPlayer createBot(MinecraftServer server, ServerLevel level, String name) {
         ServerPlayer bot = new ServerPlayer(server, level, new GameProfile(UUID.randomUUID(), name)) {
             @Override
             public boolean isSpectator() {
@@ -142,8 +150,6 @@ public final class Arena {
         }
         bot.setGameMode(GameType.SURVIVAL);
         bot.setHealth(bot.getMaxHealth());
-        BOTS.add(bot);
-        moveTo(bot, x, y, z);
         return bot;
     }
 

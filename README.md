@@ -235,8 +235,17 @@ heartbeat). To use your own recordings, ship a resource pack with
 ## Automated tests
 
 ```bash
-./gradlew runGameTestServer      # 24 game tests on a headless server, about 35 s
+./gradlew runGameTestServer      # 28 game tests on a headless server, about 35 s
 node tools/validate_mod.mjs      # static checks for client assets, shaders, language keys and packets
+```
+
+In-game tests (they open a copy of a world saved as `run/saves/flashlight_test`, build a flat night arena inside a
+zone of their own, save screenshots to `run/screenshots` and quit; run from a short path, see above):
+
+```bash
+./gradlew runClient -PscareTest   # every jumpscare the client can show: scare_*.png
+./gradlew runClient -PgrabTest    # a bot partner holds your hand (third person), then you / the bot are dragged away: grab_*.png
+./gradlew runClient -PflashlightTest   # the flashlight, fog debug views and inventory checks: fltest_*.png
 ```
 
 The game tests use **bot players**: real `ServerPlayer`s placed in the player list (so the mod's code sees them
@@ -249,6 +258,7 @@ The test code lives in `com.halloweenevent.gametest` and is **not packaged** int
 |---|---|
 | Event | candy counted once per player, shared mode and respawn, reward paid exactly once (item and command), leaving early keeps progress, death never wins and re-entering works, nothing happens while stopped, the zone is exactly its box |
 | Hold Hands | bots can hold and let go; alone at level 3 costs exactly 1 health per 30 s sequence and never repeats; levels 1-2 never damage; holding hands (from the start or taken late) resets the timer |
+| Jumpscares | four pairs take hands before the whisper, after it, after the text and after the figure: each gets exactly the scares so far, then STOP; letting go restarts from the whisper only; leaving the zone ends the scares and re-entering starts fresh; every `/halloween test` scare reaches only its target with the right type and level; the chase carries the victim's level 1, 2 and 3 |
 | Dark figure | the test grab drags a held player about 10 blocks from the partner every time, anywhere; the timed grab splits a couple inside the zone; no grab when the interval is off; a partner or victim disconnecting is safe |
 | Packets | every packet round-trips; the scare ladder sends whisper, text, figure in order at the player's level and a stop when hands are taken; the grab goes to both players and the chase only to the victim, with the victim's level; candy and status go only to the right players; admin data only to operators |
 | Admin and commands | operator-only, every value clamped, malformed input ignored; commands hidden from non-operators, test commands work |

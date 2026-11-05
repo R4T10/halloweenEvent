@@ -37,6 +37,18 @@ minecraft {
                 args '--quickPlaySingleplayer', 'flashlight_test', '--width', '1920', '--height', '1080'
                 property 'halloweenevent.flashlightSelfTest', 'true'
             }
+            // gradlew runClient -PscareTest: same save; plays every jumpscare and saves screenshots/scare_*.png
+            // (client/ScareSelfTest).
+            if (project.hasProperty('scareTest')) {
+                args '--quickPlaySingleplayer', 'flashlight_test', '--width', '1920', '--height', '1080'
+                property 'halloweenevent.scareSelfTest', 'true'
+            }
+            // gradlew runClient -PgrabTest: a bot partner holds your hand, then the figure drags one of you away
+            // (third person); saves screenshots/grab_*.png (client/GrabSelfTest).
+            if (project.hasProperty('grabTest')) {
+                args '--quickPlaySingleplayer', 'flashlight_test', '--width', '1920', '--height', '1080'
+                property 'halloweenevent.grabSelfTest', 'true'
+            }
         }
         server {
             args '--nogui'

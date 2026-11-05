@@ -205,7 +205,14 @@ public final class FlashlightSelfTest {
             ServerLevel level = sp.serverLevel();
             level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
             level.setDayTime(18000);
-            AABB zone = EventData.get(server).zone();
+            // Always test inside a zone of its own around the player (the saved one may be somewhere else).
+            EventData data = EventData.get(server);
+            BlockPos at = sp.blockPosition();
+            data.dimension = level.dimension();
+            data.setCorner(true, at.offset(-40, -10, -40));
+            data.setCorner(false, at.offset(40, 25, 60));
+            if (!data.active) com.halloweenevent.server.EventManager.start(server);
+            AABB zone = data.zone();
             int x = Mth.floor(zone != null ? zone.getCenter().x : sp.getX());
             int z = Mth.floor(zone != null ? zone.getCenter().z : sp.getZ());
             int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);

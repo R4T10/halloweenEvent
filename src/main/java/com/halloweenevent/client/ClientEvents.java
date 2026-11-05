@@ -100,6 +100,8 @@ public final class ClientEvents {
             CandyRenderer.tickParticles(mc, clientTicks);
             FlashlightClient.clientTick(mc);
             FlashlightSelfTest.clientTick(mc);
+            ScareSelfTest.clientTick(mc);
+            GrabSelfTest.clientTick(mc);
             guardFreecam(mc);
         }
 
