@@ -135,9 +135,9 @@ public final class ModGameTests {
 
     @GameTest(template = ARENA, batch = "packets", timeoutTicks = 40)
     public static void everyPacketEncodesAndDecodesToTheSameValues(GameTestHelper helper) {
-        S2CStatus status = new S2CStatus(true, false, true, false, true, 12, 15);
+        S2CStatus status = new S2CStatus(true, false, true, false, true, 12, 15, 0b101);
         helper.assertTrue(status.equals(roundTrip(status, S2CStatus::encode, S2CStatus::decode)), "S2CStatus");
-        S2CStatus status2 = new S2CStatus(false, true, false, true, false, 0, 1);
+        S2CStatus status2 = new S2CStatus(false, true, false, true, false, 0, 1, 0);
         helper.assertTrue(status2.equals(roundTrip(status2, S2CStatus::encode, S2CStatus::decode)), "S2CStatus (other flags)");
 
         for (int type = 0; type <= 9; type++) {

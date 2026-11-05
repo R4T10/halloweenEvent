@@ -1,6 +1,7 @@
 package com.halloweenevent.server;
 
 import com.halloweenevent.data.EventData;
+import com.halloweenevent.data.ScareKind;
 import com.halloweenevent.network.Net;
 import com.halloweenevent.network.S2CScare;
 import com.mojang.brigadier.CommandDispatcher;
@@ -15,6 +16,7 @@ import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 
@@ -53,6 +55,16 @@ public final class HalloweenCommand {
                     return 1;
                 }))
                 .then(Commands.literal("status").executes(HalloweenCommand::status))
+                // The candy-spawn stick: right-click a block places, left-click a candy removes.
+                .then(Commands.literal("wand").executes(ctx -> {
+                    ServerPlayer sp = ctx.getSource().getPlayerOrException();
+                    if (!sp.getInventory().add(CandyWand.create())) {
+                        ctx.getSource().sendFailure(Component.translatable("msg.halloweenevent.admin.inventory_full"));
+                        return 0;
+                    }
+                    ctx.getSource().sendSuccess(() -> Component.translatable("cmd.halloweenevent.wand"), false);
+                    return 1;
+                }))
                 .then(Commands.literal("reset").executes(ctx -> {
                     EventManager.resetProgress(ctx.getSource().getServer());
                     ctx.getSource().sendSuccess(() -> Component.translatable("msg.halloweenevent.admin.reset"), true);
@@ -84,33 +96,33 @@ public final class HalloweenCommand {
                 .then(leveled("figure", S2CScare.FIGURE))
                 .then(leveled("chase", S2CScare.CHASE))
                 // Screen scares.
-                .then(targeted("eyes", "eyes", p -> scare(p, S2CScare.EYES, 0))
-                        .then(targeted("wall", "eyes wall", p -> scare(p, S2CScare.EYES, 1))))
-                .then(targeted("hypno", "hypno", p -> scare(p, S2CScare.HYPNO, 0)))
-                .then(targeted("face", "face", p -> scare(p, S2CScare.FACE, 0)))
-                .then(targeted("freecam", "freecam", p -> scare(p, S2CScare.FREECAM_FACE, 0)))
+                .then(targeted("eyes", "eyes", ScareKind.EYES, p -> scare(p, S2CScare.EYES, 0))
+                        .then(targeted("wall", "eyes wall", ScareKind.EYES, p -> scare(p, S2CScare.EYES, 1))))
+                .then(targeted("hypno", "hypno", ScareKind.HYPNO, p -> scare(p, S2CScare.HYPNO, 0)))
+                .then(targeted("face", "face", ScareKind.FACE, p -> scare(p, S2CScare.FACE, 0)))
+                .then(targeted("freecam", "freecam", ScareKind.FACE, p -> scare(p, S2CScare.FREECAM_FACE, 0)))
                 // The dark figure drags a hand-holding player away from their partner; "alone" needs no partner.
-                .then(targeted("grab", "grab", EventManager::testGrab)
-                        .then(targeted("alone", "grab alone", EventManager::testGrabAlone)))
+                .then(targeted("grab", "grab", ScareKind.GRAB, EventManager::testGrab)
+                        .then(targeted("alone", "grab alone", ScareKind.GRAB, EventManager::testGrabAlone)))
                 // The event flashlight: kill it, kill it so the next switch-on gives up, or make it flicker.
-                .then(targeted("flashlight", "flashlight", p -> Flashlights.kill(p) ? null : "cmd.halloweenevent.test_flashlight_failed")
-                        .then(targeted("jinx", "flashlight jinx", p -> Flashlights.jinx(p) ? null : "cmd.halloweenevent.test_no_flashlight"))
+                .then(targeted("flashlight", "flashlight", ScareKind.FLASHLIGHT, p -> Flashlights.kill(p) ? null : "cmd.halloweenevent.test_flashlight_failed")
+                        .then(targeted("jinx", "flashlight jinx", ScareKind.FLASHLIGHT, p -> Flashlights.jinx(p) ? null : "cmd.halloweenevent.test_no_flashlight"))
                         .then(Commands.literal("flicker")
                                 .then(Commands.argument("seconds", IntegerArgumentType.integer(1, 120))
-                                        .executes(ctx -> run(ctx, List.of(self(ctx)), "flashlight flicker", flicker(ctx)))
+                                        .executes(ctx -> run(ctx, List.of(self(ctx)), "flashlight flicker", ScareKind.FLASHLIGHT, flicker(ctx)))
                                         .then(Commands.argument("targets", EntityArgument.players())
                                                 .executes(ctx -> run(ctx, EntityArgument.getPlayers(ctx, "targets"),
-                                                        "flashlight flicker", flicker(ctx)))))))
+                                                        "flashlight flicker", ScareKind.FLASHLIGHT, flicker(ctx)))))))
                 // Ends every scare on their screen at once.
-                .then(targeted("clear", "clear", p -> scare(p, S2CScare.CLEAR, 0)));
+                .then(targeted("clear", "clear", null, p -> scare(p, S2CScare.CLEAR, 0)));
     }
 
     /** {@code <name> [targets]}. */
-    private static LiteralArgumentBuilder<CommandSourceStack> targeted(String literal, String name, Effect effect) {
+    private static LiteralArgumentBuilder<CommandSourceStack> targeted(String literal, String name, @Nullable ScareKind kind, Effect effect) {
         return Commands.literal(literal)
-                .executes(ctx -> run(ctx, List.of(self(ctx)), name, effect))
+                .executes(ctx -> run(ctx, List.of(self(ctx)), name, kind, effect))
                 .then(Commands.argument("targets", EntityArgument.players())
-                        .executes(ctx -> run(ctx, EntityArgument.getPlayers(ctx, "targets"), name, effect)));
+                        .executes(ctx -> run(ctx, EntityArgument.getPlayers(ctx, "targets"), name, kind, effect)));
     }
 
     /**
@@ -118,21 +130,22 @@ public final class HalloweenCommand {
      * first so "figure 3" reads 3 as the level, not as a player called "3".
      */
     private static LiteralArgumentBuilder<CommandSourceStack> leveled(String name, int type) {
+        ScareKind kind = S2CScare.kindOf(type);
         return Commands.literal(name)
-                .executes(ctx -> run(ctx, List.of(self(ctx)), name, p -> scare(p, type, levelOf(p))))
+                .executes(ctx -> run(ctx, List.of(self(ctx)), name, kind, p -> scare(p, type, levelOf(p))))
                 .then(Commands.argument("level", IntegerArgumentType.integer(1, 3))
                         .executes(ctx -> {
                             int level = IntegerArgumentType.getInteger(ctx, "level");
-                            return run(ctx, List.of(self(ctx)), name + " " + level, p -> scare(p, type, level));
+                            return run(ctx, List.of(self(ctx)), name + " " + level, kind, p -> scare(p, type, level));
                         })
                         .then(Commands.argument("targets", EntityArgument.players())
                                 .executes(ctx -> {
                                     int level = IntegerArgumentType.getInteger(ctx, "level");
-                                    return run(ctx, EntityArgument.getPlayers(ctx, "targets"), name + " " + level,
+                                    return run(ctx, EntityArgument.getPlayers(ctx, "targets"), name + " " + level, kind,
                                             p -> scare(p, type, level));
                                 })))
                 .then(Commands.argument("targets", EntityArgument.players())
-                        .executes(ctx -> run(ctx, EntityArgument.getPlayers(ctx, "targets"), name,
+                        .executes(ctx -> run(ctx, EntityArgument.getPlayers(ctx, "targets"), name, kind,
                                 p -> scare(p, type, levelOf(p)))));
     }
 
@@ -142,11 +155,14 @@ public final class HalloweenCommand {
     }
 
     /** Applies the effect to every target; reports each failure, and one success line. @return how many it hit */
-    private static int run(CommandContext<CommandSourceStack> ctx, Collection<ServerPlayer> targets, String name, Effect effect) {
+    private static int run(CommandContext<CommandSourceStack> ctx, Collection<ServerPlayer> targets, String name,
+                           @Nullable ScareKind kind, Effect effect) {
         int hit = 0;
         ServerPlayer last = null;
+        EventData d = EventData.get(ctx.getSource().getServer());
         for (ServerPlayer p : targets) {
-            String error = effect.apply(p);
+            // Exempt players are never pranked with what they asked to be spared.
+            String error = kind != null && !d.allows(p, kind) ? "cmd.halloweenevent.exempt" : effect.apply(p);
             if (error != null) {
                 ctx.getSource().sendFailure(Component.translatable(error, p.getDisplayName()));
             } else {

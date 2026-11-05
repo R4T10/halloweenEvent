@@ -20,6 +20,7 @@ public final class ClientPacketHandlers {
         ClientState.holding = msg.holding();
         ClientState.count = msg.count();
         ClientState.target = msg.target();
+        ClientState.blocked = msg.blocked();
         if (!msg.active() || !msg.inZone()) ScareEffects.stopAll();
     }
 

@@ -1,11 +1,13 @@
 package com.halloweenevent.network;
 
 import com.halloweenevent.client.ClientPacketHandlers;
+import com.halloweenevent.data.ScareKind;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
 
+import javax.annotation.Nullable;
 import java.util.function.Supplier;
 
 /** Scare trigger; all visuals and sounds are produced client-side from this 2-byte message. */
@@ -28,6 +30,21 @@ public record S2CScare(int type, int level) {
     public static final int FREECAM_FACE = 11;
     /** Ends every scare on screen at once (eyes, chase, faces, text, fog spike). Admin. */
     public static final int CLEAR = 12;
+
+    /** The exemption kind a scare type belongs to, or {@code null} for control messages (STOP, CARRY_OFF, CLEAR). */
+    @Nullable
+    public static ScareKind kindOf(int type) {
+        return switch (type) {
+            case WHISPER -> ScareKind.WHISPER;
+            case TEXT -> ScareKind.TEXT;
+            case FIGURE -> ScareKind.FIGURE;
+            case CARRY_ON, FACE, FREECAM_FACE -> ScareKind.FACE;
+            case CHASE -> ScareKind.CHASE;
+            case EYES -> ScareKind.EYES;
+            case HYPNO -> ScareKind.HYPNO;
+            default -> null;
+        };
+    }
 
     public void encode(FriendlyByteBuf buf) {
         buf.writeByte(type);

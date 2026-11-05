@@ -1,6 +1,7 @@
 package com.halloweenevent.client;
 
 import com.halloweenevent.HalloweenEventMod;
+import com.halloweenevent.data.ScareKind;
 import com.halloweenevent.network.S2CScare;
 import com.halloweenevent.registry.ModSounds;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -162,9 +163,10 @@ public final class ScareEffects {
     }
 
     public static void freecamCaught() {
+        glitch(20);
+        if (!ClientState.allows(ScareKind.FACE)) return;
         if (tick >= freecamFaceUntil) play(ModSounds.SCREAM.get(), 1.0f, 1.1f);
         freecamFaceUntil = tick + 60;
-        glitch(20);
     }
 
     /** Hand-holding resumed: everything fades out, the fog included. */
@@ -229,11 +231,10 @@ public final class ScareEffects {
             figurePos = new Vec3(player.getX() + look.x * 1.8, player.getY(), player.getZ() + look.z * 1.8);
             figureLunged = true;
             figureEnd = tick + 22;
-            flashUntil = tick + 8;
+            jumpscare(8, 0.7f);
             ScreenEyes.wall(30);
             glitch(45);
             shake(30);
-            play(ModSounds.SCREAM.get(), 1.0f, 0.7f);
             play(ModSounds.STINGER.get(), 1.0f, 0.5f);
         } else if (figureLevel == 2 && !figureSeen && isLookingAt(player, figurePos)) {
             // Level 2: it vanishes shortly after you notice it.
@@ -256,6 +257,7 @@ public final class ScareEffects {
      * because a single soul-sand whisper sample is too quiet to notice during gameplay.
      */
     private static void whisper(boolean loud) {
+        if (!ClientState.allows(ScareKind.WHISPER)) return;
         SoundEvent soft = ModSounds.WHISPER.get();
         playPanned(soft, 1.0f, 0.85f + RNG.nextFloat() * 0.1f, -2.0, -1.0);
         playPanned(soft, 1.0f, 0.75f + RNG.nextFloat() * 0.1f, 2.0, -1.0);
@@ -263,6 +265,7 @@ public final class ScareEffects {
     }
 
     private static void spawnTexts(int n, int duration) {
+        if (!ClientState.allows(ScareKind.TEXT)) return;
         for (int i = 0; i < n && TEXTS.size() < MAX_TEXTS; i++) {
             int start = tick + i * 6;
             TEXTS.add(new Text(Component.translatable("horror.halloweenevent." + RNG.nextInt(HORROR_LINES)),
@@ -272,7 +275,7 @@ public final class ScareEffects {
 
     private static void spawnFigure(Minecraft mc, int level) {
         Player p = mc.player;
-        if (p == null || mc.level == null) return;
+        if (p == null || mc.level == null || !ClientState.allows(ScareKind.FIGURE)) return;
         FigureModels.Kind[] kinds = FigureModels.Kind.values();
         FigureModels.Kind next = kinds[RNG.nextInt(kinds.length)];
         if (next == figureKind) next = kinds[(next.ordinal() + 1) % kinds.length];
@@ -308,6 +311,7 @@ public final class ScareEffects {
     }
 
     private static void spawnText(String key, int duration) {
+        if (!ClientState.allows(ScareKind.TEXT)) return;
         if (TEXTS.size() >= MAX_TEXTS) return;
         TEXTS.add(new Text(Component.translatable(key), 0.5f, 0.3f + RNG.nextFloat() * 0.4f, tick, tick + duration, 2));
     }
@@ -315,6 +319,7 @@ public final class ScareEffects {
     // ---- hand grab + chase ----
 
     public static void handGrab(int victimId, float dirX, float dirZ) {
+        if (!ClientState.allows(ScareKind.GRAB)) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.level.getEntity(victimId) == null) return;
         handVictim = victimId;
@@ -358,6 +363,7 @@ public final class ScareEffects {
     }
 
     private static void startChase(Minecraft mc, int level) {
+        if (!ClientState.allows(ScareKind.CHASE)) return;
         Player p = mc.player;
         if (p == null || mc.level == null) return;
         Vec3 look = p.getLookAngle();
@@ -388,11 +394,10 @@ public final class ScareEffects {
         double dist = Math.sqrt(to.x * to.x + to.z * to.z);
         if (dist < 1.2 && Math.abs(to.y) < 2.5) {
             chasePos = null;
-            flashUntil = tick + 10;
+            jumpscare(10, 0.9f);
             ScreenEyes.wall(25);
             glitch(30);
             shake(25);
-            play(ModSounds.SCREAM.get(), 1.0f, 0.9f);
             return;
         }
         double nx = chasePos.x + to.x / dist * 0.26, nz = chasePos.z + to.z / dist * 0.26;
@@ -413,11 +418,20 @@ public final class ScareEffects {
         if (red) fogRed = true;
     }
 
+    /** The screaming face flash of a jumpscare (not for players exempt from faces). */
+    private static void jumpscare(int ticks, float pitch) {
+        if (!ClientState.allows(ScareKind.FACE)) return;
+        flashUntil = tick + ticks;
+        play(ModSounds.SCREAM.get(), 1.0f, pitch);
+    }
+
     private static void glitch(int ticks) {
+        if (!ClientState.allows(ScareKind.GLITCH)) return;
         glitchUntil = Math.max(glitchUntil, tick + ticks);
     }
 
     private static void shake(int ticks) {
+        if (!ClientState.allows(ScareKind.GLITCH)) return;
         shakeUntil = Math.max(shakeUntil, tick + ticks);
     }
 

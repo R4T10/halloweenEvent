@@ -1,6 +1,8 @@
 package com.halloweenevent.server;
 
 import com.halloweenevent.HalloweenEventMod;
+import com.halloweenevent.data.EventData;
+import com.halloweenevent.data.ScareKind;
 import com.halloweenevent.item.FlashlightItem;
 import com.halloweenevent.registry.ModItems;
 import com.halloweenevent.registry.ModSounds;
@@ -178,6 +180,7 @@ public final class Flashlights {
 
     /** Kills the lit flashlight in the player's hands, if any. @return true if one went out. */
     public static boolean kill(ServerPlayer sp) {
+        if (!exemptOk(sp)) return false;
         ItemStack stack = FlashlightItem.heldLit(sp);
         if (stack.isEmpty()) return false;
         FlashlightItem.switchOff(stack, true);
@@ -190,6 +193,7 @@ public final class Flashlights {
 
     /** Admin prank: the player's flashlight flickers hard for {@code ticks}, lit or not yet. @return false without one */
     public static boolean flicker(ServerPlayer sp, int ticks) {
+        if (!exemptOk(sp)) return false;
         ItemStack stack = find(sp);
         if (stack.isEmpty()) return false;
         FlashlightItem.setFlickerUntil(stack, sp.level().getGameTime() + ticks);
@@ -201,12 +205,18 @@ public final class Flashlights {
      * @return false without a flashlight
      */
     public static boolean jinx(ServerPlayer sp) {
+        if (!exemptOk(sp)) return false;
         ItemStack stack = find(sp);
         if (stack.isEmpty()) return false;
         // A lit one in the hands dies with the sound; anything else just goes dead quietly.
         if (!(FlashlightItem.isOn(stack) && kill(sp))) FlashlightItem.switchOff(stack, true);
         FlashlightItem.setJinxed(stack, true);
         return true;
+    }
+
+    /** False for a player exempt from flashlight scares: nothing kills, jinxes or flickers their light. */
+    private static boolean exemptOk(ServerPlayer sp) {
+        return EventData.get(sp.server).allows(sp, ScareKind.FLASHLIGHT);
     }
 
     /** The player's event flashlight anywhere in the inventory (hands first), or {@link ItemStack#EMPTY}. */

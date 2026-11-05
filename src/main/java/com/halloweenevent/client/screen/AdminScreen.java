@@ -1,6 +1,7 @@
 package com.halloweenevent.client.screen;
 
 import com.halloweenevent.HalloweenEventMod;
+import com.halloweenevent.data.ScareKind;
 import com.halloweenevent.network.AdminAction;
 import com.halloweenevent.network.AdminSnapshot;
 import com.halloweenevent.network.C2SAdminAction;
@@ -31,7 +32,8 @@ public class AdminScreen extends Screen {
     private static final int LABEL = 0x404040;
     private static final int ROWS = 5;
 
-    private enum Tab { EVENT, CANDY, PLAYERS, SETTINGS, HORROR }
+    private enum Tab { EVENT, CANDY, PLAYERS, SETTINGS, HORROR, EXEMPT }
+    private static final int EXEMPT_ROWS = 4;
 
     private record Label(Component text, int x, int y, boolean centered) {}
 
@@ -41,6 +43,10 @@ public class AdminScreen extends Screen {
     private final List<Label> labels = new ArrayList<>();
     private AdminSnapshot snap;
     private EditBox commandBox;
+    private EditBox nameBox;
+    /** Exempt tab: the player being edited (null = the list) and their switches until Save. */
+    private static String editing;
+    private static int editMask;
     private int left;
     private int top;
     private int page;
@@ -52,11 +58,17 @@ public class AdminScreen extends Screen {
 
     public void update(AdminSnapshot snapshot) {
         String draft = commandBox != null && commandBox.isFocused() ? commandBox.getValue() : null;
+        String typed = nameBox != null ? nameBox.getValue() : null;
+        boolean typing = nameBox != null && nameBox.isFocused();
         this.snap = snapshot;
         rebuildWidgets();
         if (draft != null && commandBox != null) {
             commandBox.setValue(draft);
             setFocused(commandBox);
+        }
+        if (typed != null && nameBox != null) {
+            nameBox.setValue(typed);
+            if (typing) setFocused(nameBox);
         }
     }
 
@@ -66,6 +78,7 @@ public class AdminScreen extends Screen {
         top = (height - H) / 2;
         labels.clear();
         commandBox = null;
+        nameBox = null;
 
         Tab[] tabs = Tab.values();
         for (int i = 0; i < tabs.length; i++) {
@@ -77,7 +90,7 @@ public class AdminScreen extends Screen {
                                 page = 0;
                                 rebuildWidgets();
                             })
-                    .bounds(left + 7 + i * 47, top + 18, 45, 20).build());
+                    .bounds(left + 7 + i * 39, top + 18, 38, 20).build());
             b.active = tab != t;
         }
         switch (tab) {
@@ -86,6 +99,10 @@ public class AdminScreen extends Screen {
             case PLAYERS -> initPlayers();
             case SETTINGS -> initSettings();
             case HORROR -> initHorror();
+            case EXEMPT -> {
+                if (editing == null) initExemptList();
+                else initExemptEdit();
+            }
         }
     }
 
@@ -142,8 +159,10 @@ public class AdminScreen extends Screen {
 
         if (!snap.sharedMode && snap.spawnCount < snap.target) {
             label(Component.translatable("gui.halloweenevent.not_enough", snap.spawnCount, snap.target)
-                    .withStyle(ChatFormatting.DARK_RED), left + 8, top + 162);
+                    .withStyle(ChatFormatting.DARK_RED), left + 8, top + 158);
         }
+        addRenderableWidget(button("gui.halloweenevent.candy_wand", AdminAction.GIVE_CANDY_WAND, left + 8, top + 172, 232))
+                .setTooltip(Tooltip.create(Component.translatable("gui.halloweenevent.candy_wand.tip")));
     }
 
     private void initPlayers() {
@@ -219,6 +238,89 @@ public class AdminScreen extends Screen {
         addRenderableWidget(toggle("gui.halloweenevent.freecam_guard", snap.freecamGuard, AdminAction.TOGGLE_FREECAM_GUARD, top + 166));
     }
 
+    /** Players spared some scares: add by name (online or not), edit, remove. */
+    private void initExemptList() {
+        nameBox = new EditBox(font, left + 9, top + 46, 150, 18, Component.translatable("gui.halloweenevent.exempt.name"));
+        nameBox.setMaxLength(16);
+        nameBox.setHint(Component.translatable("gui.halloweenevent.exempt.name").withStyle(ChatFormatting.DARK_GRAY));
+        nameBox.setFilter(t -> t.matches("[A-Za-z0-9_]*"));
+        addRenderableWidget(nameBox);
+        addRenderableWidget(Button.builder(Component.translatable("gui.halloweenevent.exempt.add"), b -> {
+                    String name = nameBox.getValue().strip();
+                    if (name.length() >= 3) startEditing(name);
+                }).tooltip(Tooltip.create(Component.translatable("gui.halloweenevent.exempt.add.tip")))
+                .bounds(left + 164, top + 45, 76, 20).build());
+
+        int pages = Math.max(1, (snap.exemptions.size() + EXEMPT_ROWS - 1) / EXEMPT_ROWS);
+        page = Math.min(page, pages - 1);
+        if (snap.exemptions.isEmpty()) {
+            label(Component.translatable("gui.halloweenevent.exempt.none"), left + 8, top + 78);
+        }
+        for (int i = 0; i < EXEMPT_ROWS; i++) {
+            int index = page * EXEMPT_ROWS + i;
+            if (index >= snap.exemptions.size()) break;
+            AdminSnapshot.ExemptRow row = snap.exemptions.get(index);
+            int y = top + 72 + i * 24;
+            label(Component.literal(font.plainSubstrByWidth(row.name(), 90)), left + 8, y + 6);
+            label(Component.translatable("gui.halloweenevent.exempt.count", Integer.bitCount(row.blocked())), left + 100, y + 6);
+            addRenderableWidget(Button.builder(Component.translatable("gui.halloweenevent.exempt.edit"),
+                    b -> startEditing(row.name())).bounds(left + 160, y, 40, 20).build());
+            addRenderableWidget(Button.builder(Component.translatable("gui.halloweenevent.exempt.remove"),
+                    b -> minecraft.setScreen(new ConfirmScreen(ok -> {
+                        if (ok) send(AdminAction.REMOVE_EXEMPTION, 0, row.name());
+                        minecraft.setScreen(this);
+                    }, Component.translatable("gui.halloweenevent.exempt.remove"),
+                            Component.translatable("gui.halloweenevent.exempt.confirm_remove", row.name()))))
+                    .bounds(left + 202, y, 38, 20).build());
+        }
+        int y = top + 172;
+        addRenderableWidget(Button.builder(Component.literal("<"), b -> turnPage(-1)).bounds(left + 8, y, 20, 20).build()).active = page > 0;
+        addRenderableWidget(Button.builder(Component.literal(">"), b -> turnPage(1)).bounds(left + 30, y, 20, 20).build()).active = page < pages - 1;
+        label(Component.translatable("gui.halloweenevent.page", page + 1, pages), left + 56, y + 6);
+    }
+
+    /** One switch per kind of scare (green = they get it, red = spared), then Save. */
+    private void initExemptEdit() {
+        label(Component.translatable("gui.halloweenevent.exempt.editing", editing), left + 8, top + 44);
+        ScareKind[] kinds = ScareKind.values();
+        for (int i = 0; i <= kinds.length; i++) {
+            int x = left + 8 + (i % 2) * 118, y = top + 56 + (i / 2) * 19;
+            if (i == kinds.length) {
+                boolean all = editMask == ScareKind.ALL;
+                addRenderableWidget(Button.builder(Component.translatable(all ? "gui.halloweenevent.exempt.allow_all"
+                        : "gui.halloweenevent.exempt.block_all"), b -> {
+                    editMask = all ? 0 : ScareKind.ALL;
+                    rebuildWidgets();
+                }).bounds(x, y, 114, 18).build());
+                break;
+            }
+            ScareKind kind = kinds[i];
+            boolean blocked = kind.in(editMask);
+            Component state = Component.translatable(blocked ? "gui.halloweenevent.exempt.off" : "gui.halloweenevent.exempt.on")
+                    .withStyle(blocked ? ChatFormatting.RED : ChatFormatting.GREEN);
+            addRenderableWidget(Button.builder(Component.translatable(kind.key()).append(": ").append(state), b -> {
+                editMask ^= kind.bit();
+                rebuildWidgets();
+            }).tooltip(Tooltip.create(Component.translatable(kind.key() + ".tip"))).bounds(x, y, 114, 18).build());
+        }
+        addRenderableWidget(Button.builder(Component.translatable("gui.halloweenevent.save"), b -> {
+            send(AdminAction.SET_EXEMPTION, editMask, editing);
+            editing = null;
+            rebuildWidgets();
+        }).bounds(left + 8, top + 174, 114, 20).build());
+        addRenderableWidget(Button.builder(Component.translatable("gui.cancel"), b -> {
+            editing = null;
+            rebuildWidgets();
+        }).bounds(left + 126, top + 174, 114, 20).build());
+    }
+
+    private void startEditing(String name) {
+        editing = name;
+        editMask = snap.exemptions.stream().filter(e -> e.name().equalsIgnoreCase(name))
+                .mapToInt(AdminSnapshot.ExemptRow::blocked).findFirst().orElse(0);
+        rebuildWidgets();
+    }
+
     // ---- widgets ----
 
     private void label(Component text, int x, int y) {
@@ -281,8 +383,10 @@ public class AdminScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        if (tab == Tab.PLAYERS) {
-            int pages = Math.max(1, (snap.players.size() + ROWS - 1) / ROWS);
+        if (tab == Tab.PLAYERS || tab == Tab.EXEMPT && editing == null) {
+            int rows = tab == Tab.PLAYERS ? ROWS : EXEMPT_ROWS;
+            int count = tab == Tab.PLAYERS ? snap.players.size() : snap.exemptions.size();
+            int pages = Math.max(1, (count + rows - 1) / rows);
             int next = Math.max(0, Math.min(pages - 1, page - (int) Math.signum(delta)));
             if (next != page) {
                 page = next;

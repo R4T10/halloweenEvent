@@ -1,6 +1,7 @@
 package com.halloweenevent.client;
 
 import com.halloweenevent.item.FlashlightItem;
+import com.halloweenevent.data.ScareKind;
 import com.halloweenevent.registry.ModSounds;
 import com.mojang.blaze3d.platform.InputConstants;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -14,8 +15,6 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.client.settings.KeyConflictContext;
-import net.minecraftforge.fml.loading.FMLEnvironment;
-import org.lwjgl.glfw.GLFW;
 
 /**
  * Client side of the flashlight: how bright each lit flashlight is right now (struggle, event flicker and
@@ -23,10 +22,14 @@ import org.lwjgl.glfw.GLFW;
  * stack NBT and the game time, so every client sees and hears roughly the same thing without extra packets.
  */
 public final class FlashlightClient {
-    /** Development only: cycles the beam pass's debug views (block grid, light amount, distance). */
+    /**
+     * Cycles the beam pass's debug views (block grid, light amount, distance). Operators (level 2+) only, and
+     * unbound by default: an operator who needs it binds it in Controls.
+     */
     public static final KeyMapping DEBUG_KEY = new KeyMapping("key.halloweenevent.flashlight_debug",
-            KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F8, "key.categories.halloweenevent");
-    public static final boolean DEBUG_KEY_ENABLED = !FMLEnvironment.production;
+            KeyConflictContext.IN_GAME, InputConstants.UNKNOWN, "key.categories.halloweenevent");
+    private static final int DEBUG_PERMISSION = 2;
+    private static boolean debugByKey;
 
     /**
      * Struggling switch-on, one character per tick: 0 off, 1-9 dim, F full. Clicks play on every off-to-on edge;
@@ -53,9 +56,20 @@ public final class FlashlightClient {
     private FlashlightClient() {}
 
     public static void clientTick(Minecraft mc) {
-        while (DEBUG_KEY_ENABLED && DEBUG_KEY.consumeClick()) {
-            if (mc.player != null) mc.player.displayClientMessage(
-                    Component.literal("Flashlight debug: " + FlashlightRenderer.cycleDebugView()), true);
+        boolean allowed = mc.player != null && mc.player.hasPermissions(DEBUG_PERMISSION);
+        while (DEBUG_KEY.consumeClick()) {
+            if (mc.player == null) continue;
+            if (allowed) {
+                debugByKey = true;
+                mc.player.displayClientMessage(Component.literal("Flashlight debug: " + FlashlightRenderer.cycleDebugView()), true);
+            } else {
+                mc.player.displayClientMessage(Component.translatable("msg.halloweenevent.flashlight_debug_denied"), true);
+            }
+        }
+        // Lost operator (deop, another server): a view turned on with the key goes back to the normal picture.
+        if (debugByKey && !allowed) {
+            debugByKey = false;
+            FlashlightRenderer.setDebugView(0);
         }
         voiceStruggles(mc);
     }
@@ -82,6 +96,8 @@ public final class FlashlightClient {
             return h < 0.5f ? 0f : h < 0.75f ? 0.25f : 1f;
         }
         if (steady || !(ClientState.active && ClientState.inZone)) return 1f;
+        // Exempt from flashlight scares: your own light stays steady (others' lights still flicker for you).
+        if (player == Minecraft.getInstance().player && !ClientState.allows(ScareKind.FLASHLIGHT)) return 1f;
         return eventFlicker(player.getId(), gameTime + partialTick, FlashlightItem.fear(stack));
     }
 

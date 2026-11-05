@@ -1,5 +1,6 @@
 package com.halloweenevent.client;
 
+import com.halloweenevent.data.ScareKind;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import net.minecraft.core.BlockPos;
@@ -17,6 +18,8 @@ public final class ClientState {
     public static boolean holding;
     public static int count;
     public static int target = 15;
+    /** {@link ScareKind} bit mask of the scares this player is exempt from (admin panel); 0 = everything. */
+    public static int blocked;
 
     public static ResourceLocation candyDimension;
     public static final Int2ObjectOpenHashMap<Candy> CANDIES = new Int2ObjectOpenHashMap<>();
@@ -24,10 +27,15 @@ public final class ClientState {
 
     private ClientState() {}
 
+    public static boolean allows(ScareKind kind) {
+        return !kind.in(blocked);
+    }
+
     public static void reset() {
         active = inZone = completed = freecamGuard = holding = false;
         count = 0;
         target = 15;
+        blocked = 0;
         candyDimension = null;
         CANDIES.clear();
         HIDDEN.clear();

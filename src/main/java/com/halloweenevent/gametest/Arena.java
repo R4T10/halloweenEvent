@@ -10,6 +10,7 @@ import com.halloweenevent.network.S2CCandyVisibility;
 import com.halloweenevent.network.S2CHandGrab;
 import com.halloweenevent.network.S2CScare;
 import com.halloweenevent.network.S2CStatus;
+import com.halloweenevent.server.CandyWand;
 import com.halloweenevent.server.EventManager;
 import com.mojang.authlib.GameProfile;
 import com.seaz.holdhands.HoldManager;
@@ -86,6 +87,8 @@ public final class Arena {
         d.freecamGuard = true;
         d.grabIntervalSeconds = 0;
         d.progress.clear();
+        d.exemptions.clear();
+        CandyWand.reset();
         // Bots must not heal between damage checks.
         a.level.getGameRules().getRule(GameRules.RULE_NATURAL_REGENERATION).set(false, a.server);
         return a;
@@ -97,6 +100,8 @@ public final class Arena {
         EventManager.onServerStopped();
         data.active = false;
         data.grabIntervalSeconds = 0;
+        data.exemptions.clear();
+        CandyWand.reset();
         level.getGameRules().getRule(GameRules.RULE_NATURAL_REGENERATION).set(true, server);
     }
 

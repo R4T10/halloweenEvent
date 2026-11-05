@@ -2,9 +2,12 @@ package com.halloweenevent.client;
 
 import com.halloweenevent.HalloweenEventMod;
 import com.halloweenevent.item.FlashlightItem;
+import com.halloweenevent.network.AdminAction;
+import com.halloweenevent.network.C2SAdminAction;
 import com.halloweenevent.network.C2SFreecamState;
 import com.halloweenevent.network.Net;
 import com.halloweenevent.registry.ModItems;
+import com.halloweenevent.server.CandyWand;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
@@ -13,6 +16,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.client.event.RegisterShadersEvent;
@@ -63,7 +67,7 @@ public final class ClientEvents {
 
         @SubscribeEvent
         public static void registerKeys(RegisterKeyMappingsEvent event) {
-            if (FlashlightClient.DEBUG_KEY_ENABLED) event.register(FlashlightClient.DEBUG_KEY);
+            event.register(FlashlightClient.DEBUG_KEY);
         }
 
         /** Model override {@code halloweenevent:on}: the lens goes dark with the light, flicker included. */
@@ -85,6 +89,7 @@ public final class ClientEvents {
         private static int clientTicks;
         private static int lastFreecam = -FREECAM_REPORT_TICKS;
         private static boolean freecamReported;
+        private static int lastWandHit = -100;
 
         private ForgeBus() {}
 
@@ -129,6 +134,22 @@ public final class ClientEvents {
                 FlashlightRenderer.onLevelRendered(event);
                 ZoneFogRenderer.onLevelRendered(event);
             }
+        }
+
+        /**
+         * Attack key with the candy stick (operators): never breaks the block, asks the server to remove the
+         * candy under the crosshair. Held down it repeats, so at most one removal per half second.
+         */
+        @SubscribeEvent
+        public static void onClickInput(InputEvent.InteractionKeyMappingTriggered event) {
+            if (!event.isAttack()) return;
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player == null || !CandyWand.is(mc.player.getItemInHand(event.getHand())) || !CandyWand.canUse(mc.player)) return;
+            event.setCanceled(true);
+            event.setSwingHand(true);
+            if (clientTicks - lastWandHit < 10) return;
+            lastWandHit = clientTicks;
+            Net.toServer(new C2SAdminAction(AdminAction.WAND_REMOVE, 0, ""));
         }
 
         /** With a shader pack the frame is final only now, after Oculus composited it. */

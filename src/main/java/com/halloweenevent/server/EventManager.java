@@ -4,6 +4,7 @@ import com.halloweenevent.HalloweenEventMod;
 import com.halloweenevent.compat.CarryOnCompat;
 import com.halloweenevent.compat.HoldHandsCompat;
 import com.halloweenevent.data.EventData;
+import com.halloweenevent.data.ScareKind;
 import com.halloweenevent.data.EventData.CandyMode;
 import com.halloweenevent.data.EventData.CandySpawn;
 import com.halloweenevent.network.Net;
@@ -226,8 +227,8 @@ public final class EventManager {
             sendScare(sp, s, S2CScare.FIGURE, level);
             Flashlights.kill(sp);
             if (level >= 3) {
-                applyFog(sp, s, MobEffects.BLINDNESS, 50);
-                sp.hurt(sp.damageSources().magic(), 1.0f);
+                if (d.allows(sp, ScareKind.FIGURE)) applyFog(sp, s, MobEffects.BLINDNESS, 50);
+                if (d.allows(sp, ScareKind.DAMAGE)) sp.hurt(sp.damageSources().magic(), 1.0f);
             }
             // One damage point per sequence; the next sequence restarts the 5/15/30 s ladder.
             s.stage = 0;
@@ -235,9 +236,18 @@ public final class EventManager {
         }
     }
 
+    /** The ladder still advances for an exempt player; they just never receive that step. */
     private static void sendScare(ServerPlayer sp, Session s, int type, int level) {
+        if (!sendIfAllowed(sp, type, level)) return;
         s.scareShown = true;
+    }
+
+    /** Sends a scare unless the player is exempt from its kind. @return true if it was sent */
+    public static boolean sendIfAllowed(ServerPlayer sp, int type, int level) {
+        ScareKind kind = S2CScare.kindOf(type);
+        if (kind != null && !EventData.get(sp.server).allows(sp, kind)) return false;
         Net.toPlayer(sp, new S2CScare(type, level));
+        return true;
     }
 
     /** Level 3 figure: a short vanilla Blindness pulse (hidden icon, no particles); shader packs honour it too. */
@@ -265,7 +275,8 @@ public final class EventManager {
         if (carrying != s.carrying) {
             s.carrying = carrying;
             s.carryStart = now;
-            Net.toPlayer(sp, new S2CScare(carrying ? S2CScare.CARRY_ON : S2CScare.CARRY_OFF, 0));
+            if (carrying) sendIfAllowed(sp, S2CScare.CARRY_ON, 0);
+            else Net.toPlayer(sp, new S2CScare(S2CScare.CARRY_OFF, 0));
         }
         if (carrying && d.carryDropSeconds > 0 && now - s.carryStart >= d.carryDropSeconds * 20L) {
             CarryOnCompat.forceDrop(sp);
@@ -314,7 +325,10 @@ public final class EventManager {
         s.grabCheckAt = now + interval;
         if (sp.getRandom().nextBoolean()) return;
 
-        boolean first = sp.getRandom().nextBoolean();
+        // Only someone not exempt from the drag can be taken; with both exempt nobody is.
+        boolean spOk = d.allows(sp, ScareKind.GRAB), partnerOk = d.allows(partner, ScareKind.GRAB);
+        if (!spOk && !partnerOk) return;
+        boolean first = spOk && (!partnerOk || sp.getRandom().nextBoolean());
         ServerPlayer victim = first ? sp : partner;
         ServerPlayer other = first ? partner : sp;
         Vec3 target = findDragTarget(victim, other, d.zone());
@@ -329,7 +343,8 @@ public final class EventManager {
         Flashlights.kill(victim);   // the figure takes the victim's light (event flashlight)
         S2CHandGrab msg = new S2CHandGrab(victim.getId(), (float) (dx / len), (float) (dz / len));
         Net.toPlayer(victim, msg);
-        if (partner != victim) Net.toPlayer(partner, msg);
+        // The partner sees the figure take the victim, unless they are exempt from that sight.
+        if (partner != victim && EventData.get(victim.server).allows(partner, ScareKind.GRAB)) Net.toPlayer(partner, msg);
     }
 
     /**
@@ -339,6 +354,7 @@ public final class EventManager {
      * @return {@code null} when the drag started, otherwise the translation key explaining why not
      */
     public static String testGrabAlone(ServerPlayer victim) {
+        if (!EventData.get(victim.server).allows(victim, ScareKind.GRAB)) return "cmd.halloweenevent.exempt";
         if (inGrab(victim.getUUID())) return "cmd.halloweenevent.test_grab_busy";
         Vec3 target = findDragTarget(victim, victim, null);
         if (target == null) return "cmd.halloweenevent.test_grab_no_spot";
@@ -354,6 +370,7 @@ public final class EventManager {
      * @return {@code null} when the drag started, otherwise the translation key explaining why not
      */
     public static String testGrab(ServerPlayer victim) {
+        if (!EventData.get(victim.server).allows(victim, ScareKind.GRAB)) return "cmd.halloweenevent.exempt";
         ServerPlayer partner = HoldHandsCompat.partner(victim);
         if (partner == null) return "cmd.halloweenevent.test_grab_not_holding";
         if (inGrab(victim.getUUID()) || inGrab(partner.getUUID())) return "cmd.halloweenevent.test_grab_busy";
@@ -432,7 +449,7 @@ public final class EventManager {
                     g.step = 2;
                 }
             } else if (g.step == 2 && age >= GRAB_CHASE_AT) {
-                Net.toPlayer(victim, new S2CScare(S2CScare.CHASE, EventData.get(server).levelFor(g.victim)));
+                sendIfAllowed(victim, S2CScare.CHASE, EventData.get(server).levelFor(g.victim));
                 it.remove();
             }
         }
@@ -455,17 +472,19 @@ public final class EventManager {
         Session s = SESSIONS.get(sp.getUUID());
         Net.toPlayer(sp, new S2CStatus(d.active, s != null && s.inside, p != null && p.completed, d.freecamGuard,
                 s != null && s.holding,
-                p == null ? 0 : p.count, d.target));
+                p == null ? 0 : p.count, d.target, d.blockedFor(sp)));
     }
 
     public static void sendCandies(ServerPlayer sp, EventData d) {
         List<S2CCandySync.Entry> list = new ArrayList<>();
-        if (d.active) {
+        // An operator holding the candy stick sees every spawn, taken or not, even with the event stopped.
+        boolean editing = CandyWand.isEditing(sp);
+        if (d.active || editing) {
             EventData.Progress p = d.progress.get(sp.getUUID());
             for (CandySpawn c : d.spawns) {
-                boolean hidden = d.mode == CandyMode.PER_PLAYER
+                boolean hidden = !editing && (d.mode == CandyMode.PER_PLAYER
                         ? p != null && p.collected.contains(c.id())
-                        : SHARED_TAKEN.containsKey(c.id());
+                        : SHARED_TAKEN.containsKey(c.id()));
                 list.add(new S2CCandySync.Entry(c.id(), c.pos(), c.variant(), hidden));
             }
         }

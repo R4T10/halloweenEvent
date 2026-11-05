@@ -1,6 +1,7 @@
 package com.halloweenevent.client;
 
 import com.halloweenevent.HalloweenEventMod;
+import com.halloweenevent.data.ScareKind;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.math.Axis;
 import net.minecraft.client.gui.GuiGraphics;
@@ -48,6 +49,7 @@ public final class ScreenEyes {
 
     /** A few eyes open around the edges of the screen, staggered. */
     public static void swarm(int count, int duration) {
+        if (!ClientState.allows(ScareKind.EYES)) return;
         for (int i = 0; i < count && EYES.size() < MAX_EYES; i++) {
             float fx, fy;
             if (RNG.nextBoolean()) {
@@ -64,6 +66,7 @@ public final class ScreenEyes {
 
     /** The whole screen fills with staring eyes on a jittered grid. */
     public static void wall(int duration) {
+        if (!ClientState.allows(ScareKind.EYES)) return;
         int cols = 7, rows = 6;
         for (int r = 0; r < rows; r++) for (int c = 0; c < cols && EYES.size() < MAX_EYES; c++) {
             float fx = (c + 0.5f + (RNG.nextFloat() - 0.5f) * 0.5f) / cols;
@@ -74,6 +77,7 @@ public final class ScreenEyes {
     }
 
     public static void hypnosis(int duration) {
+        if (!ClientState.allows(ScareKind.HYPNO)) return;
         hypnoStart = tick;
         hypnoEnd = Math.max(hypnoEnd, tick + duration);
     }

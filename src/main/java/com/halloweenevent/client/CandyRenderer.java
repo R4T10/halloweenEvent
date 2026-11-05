@@ -1,6 +1,7 @@
 package com.halloweenevent.client;
 
 import com.halloweenevent.registry.ModItems;
+import com.halloweenevent.server.CandyWand;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -28,7 +29,8 @@ public final class CandyRenderer {
     private CandyRenderer() {}
 
     private static boolean visibleHere(Minecraft mc) {
-        return ClientState.active && !ClientState.completed && !ClientState.CANDIES.isEmpty()
+        boolean editing = mc.player != null && CandyWand.canUse(mc.player) && CandyWand.holding(mc.player);
+        return (ClientState.active && !ClientState.completed || editing) && !ClientState.CANDIES.isEmpty()
                 && mc.level != null && mc.level.dimension().location().equals(ClientState.candyDimension);
     }
 

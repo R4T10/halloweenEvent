@@ -31,6 +31,14 @@ public final class AdminAction {
     public static final int TOGGLE_FREECAM_GUARD = 20;
     /** value = seconds between hand-grab checks, 0 disables */
     public static final int SET_GRAB_INTERVAL = 23;
+    /** text = player name, value = {@link com.halloweenevent.data.ScareKind} mask of the blocked kinds; adds or updates */
+    public static final int SET_EXEMPTION = 24;
+    /** text = player name */
+    public static final int REMOVE_EXEMPTION = 25;
+    /** Gives the candy-spawn stick (right-click places, left-click removes). */
+    public static final int GIVE_CANDY_WAND = 26;
+    /** Left-click with the candy stick: removes the candy spawn the sender is looking at. */
+    public static final int WAND_REMOVE = 27;
 
     private AdminAction() {}
 }

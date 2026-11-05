@@ -42,7 +42,10 @@ Textures are generated (already run; PNGs are committed under `src/main/resource
 
 1. `/halloween admin` (OP level 2) opens the panel.
 2. **Event tab**: stand in one corner, *Set corner 1 here*, walk to the opposite corner, *Set corner 2 here*.
-3. **Candy tab**: walk inside the zone and press *Add candy here* at each spot. Set *Candies to win* (default 15)
+3. **Candy tab**: walk inside the zone and press *Add candy here* at each spot, or press *Get candy stick*
+   (also `/halloween wand`): right-click a block puts a candy spawn on top of it (on a carpet or snow layer, in
+   its space; never inside a block), left-click at a candy removes it. While an operator holds the stick they see
+   every spawn, even with the event stopped. Set *Candies to win* (default 15)
    and the mode:
    - *Per player* (default): every player can take each candy once and only stops seeing the ones they took.
      You need at least as many spawns as the target.
@@ -50,6 +53,11 @@ Textures are generated (already run; PNGs are committed under `src/main/resource
 4. **Settings tab**: hold the reward item and press *Use held item*. Optionally add a reward command
    (`%player%` = winner name, runs once as the server).
 5. **Players tab**: per-player scare level (1-3) and the default level.
+   **Exempt tab**: type a player name (online or not), *Add/Edit*, then switch each kind of scare on (green, they
+   get it) or off (red, spared): whispers, text, eyes, dark figure, chase, drag, hypnosis, screaming face,
+   glitch/shake, flashlight scares, damage. *Save*. Spared kinds are skipped by the ladder, the timed drag (they
+   are never picked as victim), the flashlight phenomena and every `/halloween test`/`prank` (refused with a
+   message); the rest of the event works as usual.
 6. *Start event*. Also: `/halloween start|stop|status`.
 
 Players see a candy counter top-left. With the target reached the HUD says *Escape the zone*; walking out
@@ -70,6 +78,7 @@ needed, so they also work as pranks. `[targets]` is any player selector: a name,
 | `/halloween start` / `stop` / `status` | run the event (start needs a zone and candies) |
 | `/halloween reset` | everyone's candies and wins back to zero (rewards can be won again) |
 | `/halloween admin` | the admin panel |
+| `/halloween wand` | the candy-spawn stick (right-click a block: place on top, left-click a candy: remove) |
 | `/halloween fear <targets> <1-3>` | set a player's scare level (fog colour, flashlight phenomena, damage at 3) |
 | `/halloween candy <targets> <count>` | set a player's candy count (at the target: "escape the zone"; walking out still wins) |
 | `/halloween test whisper [level] [targets]` | ladder step 1: whispers, light fog |
@@ -227,8 +236,10 @@ in the world. Not in any creative tab. Right-click switches it on and off.
 - A killed flashlight stays off until switched on again. That switch-on struggles for ~2 s (strain whine, stutter,
   clicks); if it gives up it nearly catches, then dies again and needs another try.
 - Test: `/halloween test flashlight [player]` kills the target's lit flashlight.
-- Dev only: `F8` cycles debug views of the beam pass (block grid, light amount, distance); `[Flashlight]` and
-  `[ZoneFog]` client logs. Automated check: copy a world to `run/saves/flashlight_test`, then
+- Debug key "ดีบักไฟฉาย" (Controls, category of this mod): cycles debug views of the beam pass (block grid, light
+  amount, distance). **Unbound by default**, works only for operators (level 2+); for anyone else it just says so,
+  and a view left on is switched off when the player stops being an operator.
+- Dev only: `[Flashlight]` and `[ZoneFog]` client logs. Automated check: copy a world to `run/saves/flashlight_test`, then
   `./gradlew runClient -PflashlightTest`. It builds a small scene, screenshots fog-only plus every debug view
   from 11 angles into `run/screenshots/fltest_*.png`, checks the inventory rules (PASS/FAIL in the log) and quits.
 
@@ -317,6 +328,7 @@ The test code lives in `com.halloweenevent.gametest` and is **not packaged** int
 | Jumpscares | four pairs take hands before the whisper, after it, after the text and after the figure: each gets exactly the scares so far, then STOP; letting go restarts from the whisper only; leaving the zone ends the scares and re-entering starts fresh; every `/halloween test` scare reaches only its target with the right type and level; every prank (whisper, text, figure, chase, eyes, eye wall, hypno, face, freecam, clear, a lone grab, flashlight flicker and jinx) reaches exactly the players a selector picks, `prank` is the same as `test`, `fear` and `candy` set the player values; the chase carries the victim's level 1, 2 and 3 |
 | Dark figure | the test grab drags a held player about 10 blocks from the partner every time, anywhere; the timed grab splits a couple inside the zone; no grab when the interval is off; a partner or victim disconnecting is safe |
 | Packets | every packet round-trips; the scare ladder sends whisper, text, figure in order at the player's level and a stop when hands are taken; the grab goes to both players and the chase only to the victim, with the victim's level; candy and status go only to the right players; admin data only to operators |
+| Exemptions and stick | a spared player skips exactly the spared ladder steps while others get them all, the client learns the mask, removing it restores everything; pranks of a spared kind are refused and the rest still land; the stick places on top of the clicked block or in a carpet's space, refuses duplicates, blocked spots, outside the zone and non-operators, shows every spawn to the holding operator, removes only the candy under the crosshair and never through a wall |
 | Admin and commands | operator-only, every value clamped, malformed input ignored; commands hidden from non-operators, test commands work |
 | Saving | every setting and player progress survives save and load; bad values are clamped |
 

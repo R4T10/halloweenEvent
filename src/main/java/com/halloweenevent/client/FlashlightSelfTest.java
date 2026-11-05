@@ -110,6 +110,10 @@ public final class FlashlightSelfTest {
         if (t == 0) mc.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_BACK);
         if (t == 30) mc.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_FRONT);
         aim(mc, 20, 25);
+        // The same two views with the zone fog lifted, so the held flashlight model itself can be checked.
+        ZoneFogRenderer.testDisabled = (t >= 8 && t < 20) || (t >= 38 && t < 50);
+        if (t == 16) Screenshot.grab(mc.gameDirectory, "fltest_third_back_nofog.png", mc.getMainRenderTarget(), c -> {});
+        if (t == 46) Screenshot.grab(mc.gameDirectory, "fltest_third_front_nofog.png", mc.getMainRenderTarget(), c -> {});
         if (t == 25) Screenshot.grab(mc.gameDirectory, "fltest_third_back.png", mc.getMainRenderTarget(), c -> {});
         if (t == 55) {
             Screenshot.grab(mc.gameDirectory, "fltest_third_front.png", mc.getMainRenderTarget(), c -> {});

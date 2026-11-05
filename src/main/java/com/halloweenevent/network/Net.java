@@ -9,7 +9,7 @@ import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.network.simple.SimpleChannel;
 
 public final class Net {
-    private static final String VERSION = "6";
+    private static final String VERSION = "7";
     /**
      * Servers require the mod on clients; clients may still join servers without it
      * (they never send anything unless the server has activated the event or opened the admin screen).

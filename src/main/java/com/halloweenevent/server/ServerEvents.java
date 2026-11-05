@@ -29,6 +29,7 @@ public final class ServerEvents {
         if (event.phase != TickEvent.Phase.END) return;
         EventManager.tick(event.getServer());
         Flashlights.tick(event.getServer());
+        CandyWand.tick(event.getServer(), event.getServer().getTickCount());
     }
 
     // ---- the event flashlight never leaves its owner's inventory ----
@@ -72,6 +73,7 @@ public final class ServerEvents {
     @SubscribeEvent
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer sp) EventManager.onLogout(sp);
+        CandyWand.forget(event.getEntity().getUUID());
     }
 
     @SubscribeEvent
@@ -87,6 +89,24 @@ public final class ServerEvents {
     @SubscribeEvent
     public static void onServerStopped(ServerStoppedEvent event) {
         EventManager.onServerStopped();
+        CandyWand.reset();
+    }
+
+    // ---- the candy-spawn stick (both sides: the client must not use or break the block either) ----
+
+    /** Right-click a block: a candy spawn on top of it. */
+    @SubscribeEvent(priority = EventPriority.HIGH)
+    public static void onWandUse(PlayerInteractEvent.RightClickBlock event) {
+        if (!CandyWand.is(event.getItemStack()) || !CandyWand.canUse(event.getEntity())) return;
+        event.setCanceled(true);
+        event.setCancellationResult(InteractionResult.SUCCESS);
+        if (event.getEntity() instanceof ServerPlayer sp) CandyWand.place(sp, event.getPos());
+    }
+
+    /** Left-click never breaks blocks with the stick; removing is a packet from the client's attack key. */
+    @SubscribeEvent
+    public static void onWandHit(PlayerInteractEvent.LeftClickBlock event) {
+        if (CandyWand.is(event.getItemStack()) && CandyWand.canUse(event.getEntity())) event.setCanceled(true);
     }
 
     /** Carry On picks blocks up in a HIGH-priority listener that skips cancelled events. */
