@@ -58,6 +58,40 @@ escaping (they must re-enter and walk out).
 
 All settings and progress persist in `<world>/data/halloweenevent.dat`.
 
+## Commands (operators, level 2)
+
+Every scare and flashlight effect can be fired at chosen players right now: no timers, no zone, no running event
+needed, so they also work as pranks. `[targets]` is any player selector: a name, `@a`, `@r`, `@p`,
+`@a[distance=..10]`, `@a[tag=x]`; leave it out to hit yourself. `/halloween prank ...` is the same as
+`/halloween test ...`. Only the chosen players see and hear anything.
+
+| Command | What it does |
+|---|---|
+| `/halloween start` / `stop` / `status` | run the event (start needs a zone and candies) |
+| `/halloween reset` | everyone's candies and wins back to zero (rewards can be won again) |
+| `/halloween admin` | the admin panel |
+| `/halloween fear <targets> <1-3>` | set a player's scare level (fog colour, flashlight phenomena, damage at 3) |
+| `/halloween candy <targets> <count>` | set a player's candy count (at the target: "escape the zone"; walking out still wins) |
+| `/halloween test whisper [level] [targets]` | ladder step 1: whispers, light fog |
+| `/halloween test text [level] [targets]` | ladder step 2: horror text, eyes from level 2, glitch at 3 |
+| `/halloween test figure [level] [targets]` | ladder step 3: the dark figure (level 1: text only), red fog at 3 |
+| `/halloween test chase [level] [targets]` | a figure sprints at them for 10 s (only they see it) |
+| `/halloween test eyes [targets]` | a swarm of eyes at the screen edges |
+| `/halloween test eyes wall [targets]` | eyes over the whole screen |
+| `/halloween test hypno [targets]` | the red hypnosis eye |
+| `/halloween test face [targets]` | the screaming face (Carry On's) for 3 s |
+| `/halloween test freecam [targets]` | the freecam face and glitch |
+| `/halloween test grab [targets]` | the figure drags a hand-holding player 10 blocks from their partner, then the chase |
+| `/halloween test grab alone [targets]` | the same drag with no partner needed (from where they stand) |
+| `/halloween test flashlight [targets]` | kills their lit flashlight (they must switch it back on: it struggles) |
+| `/halloween test flashlight jinx [targets]` | kills it, and the next switch-on struggles and gives up (needs a second try) |
+| `/halloween test flashlight flicker <seconds> [targets]` | their flashlight flickers hard for 1-120 s, anywhere |
+| `/halloween test clear [targets]` | ends every scare on their screen at once |
+
+`[level]` is 1-3; without it each target's own scare level is used. Examples:
+`/halloween prank eyes wall Steve`, `/halloween test figure 3 @r`, `/halloween test flashlight flicker 10 @a[distance=..15]`.
+A flashlight exists only inside the zone while the event runs, so the flashlight pranks need that.
+
 ## Integrations (verified against the supplied JARs)
 
 ### Hold Hands 1.1.4
@@ -238,7 +272,7 @@ heartbeat). To use your own recordings, ship a resource pack with
 ## Automated tests
 
 ```bash
-./gradlew runGameTestServer      # 28 game tests on a headless server, about 35 s
+./gradlew runGameTestServer      # 29 game tests on a headless server, about 35 s
 node tools/validate_mod.mjs      # static checks for client assets, shaders, language keys and packets
 ```
 
@@ -280,7 +314,7 @@ The test code lives in `com.halloweenevent.gametest` and is **not packaged** int
 |---|---|
 | Event | candy counted once per player, shared mode and respawn, reward paid exactly once (item and command), leaving early keeps progress, death never wins and re-entering works, nothing happens while stopped, the zone is exactly its box |
 | Hold Hands | bots can hold and let go; alone at level 3 costs exactly 1 health per 30 s sequence and never repeats; levels 1-2 never damage; holding hands (from the start or taken late) resets the timer |
-| Jumpscares | four pairs take hands before the whisper, after it, after the text and after the figure: each gets exactly the scares so far, then STOP; letting go restarts from the whisper only; leaving the zone ends the scares and re-entering starts fresh; every `/halloween test` scare reaches only its target with the right type and level; the chase carries the victim's level 1, 2 and 3 |
+| Jumpscares | four pairs take hands before the whisper, after it, after the text and after the figure: each gets exactly the scares so far, then STOP; letting go restarts from the whisper only; leaving the zone ends the scares and re-entering starts fresh; every `/halloween test` scare reaches only its target with the right type and level; every prank (whisper, text, figure, chase, eyes, eye wall, hypno, face, freecam, clear, a lone grab, flashlight flicker and jinx) reaches exactly the players a selector picks, `prank` is the same as `test`, `fear` and `candy` set the player values; the chase carries the victim's level 1, 2 and 3 |
 | Dark figure | the test grab drags a held player about 10 blocks from the partner every time, anywhere; the timed grab splits a couple inside the zone; no grab when the interval is off; a partner or victim disconnecting is safe |
 | Packets | every packet round-trips; the scare ladder sends whisper, text, figure in order at the player's level and a stop when hands are taken; the grab goes to both players and the chase only to the victim, with the victim's level; candy and status go only to the right players; admin data only to operators |
 | Admin and commands | operator-only, every value clamped, malformed input ignored; commands hidden from non-operators, test commands work |

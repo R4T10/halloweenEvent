@@ -164,7 +164,8 @@ public final class Flashlights {
         } else if (FlashlightItem.isDead(stack)) {
             // Clicks and the final "catch" come from the clients, in step with the stutter they draw.
             long now = sp.level().getGameTime();
-            boolean fail = sp.getRandom().nextFloat() < FAIL_CHANCE[FlashlightItem.fear(stack)];
+            boolean fail = FlashlightItem.jinxed(stack) || sp.getRandom().nextFloat() < FAIL_CHANCE[FlashlightItem.fear(stack)];
+            FlashlightItem.setJinxed(stack, false);
             FlashlightItem.switchOn(stack, now, fail);
             if (fail) FAILING.put(sp.getUUID(), new long[]{now, sp.server.getTickCount() + FlashlightItem.STRUGGLE_TICKS});
             HalloweenEventMod.LOGGER.debug("[Flashlight] {} switched on after a kill: struggling{}", name, fail ? ", will give up" : "");
@@ -185,6 +186,38 @@ public final class Flashlights {
         play(sp, ModSounds.FLASHLIGHT_DIE.get(), 1.0f, 0.7f);
         HalloweenEventMod.LOGGER.debug("[Flashlight] {}'s flashlight was killed by the event", sp.getGameProfile().getName());
         return true;
+    }
+
+    /** Admin prank: the player's flashlight flickers hard for {@code ticks}, lit or not yet. @return false without one */
+    public static boolean flicker(ServerPlayer sp, int ticks) {
+        ItemStack stack = find(sp);
+        if (stack.isEmpty()) return false;
+        FlashlightItem.setFlickerUntil(stack, sp.level().getGameTime() + ticks);
+        return true;
+    }
+
+    /**
+     * Admin prank: kills the light, and the next switch-on struggles and gives up for sure (it needs a second try).
+     * @return false without a flashlight
+     */
+    public static boolean jinx(ServerPlayer sp) {
+        ItemStack stack = find(sp);
+        if (stack.isEmpty()) return false;
+        // A lit one in the hands dies with the sound; anything else just goes dead quietly.
+        if (!(FlashlightItem.isOn(stack) && kill(sp))) FlashlightItem.switchOff(stack, true);
+        FlashlightItem.setJinxed(stack, true);
+        return true;
+    }
+
+    /** The player's event flashlight anywhere in the inventory (hands first), or {@link ItemStack#EMPTY}. */
+    private static ItemStack find(ServerPlayer sp) {
+        if (FlashlightItem.is(sp.getMainHandItem())) return sp.getMainHandItem();
+        if (FlashlightItem.is(sp.getOffhandItem())) return sp.getOffhandItem();
+        Inventory inv = sp.getInventory();
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            if (FlashlightItem.is(inv.getItem(i))) return inv.getItem(i);
+        }
+        return ItemStack.EMPTY;
     }
 
     /** Called every 5 ticks for a player inside the active zone; more often at higher scare levels. */

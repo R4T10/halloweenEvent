@@ -22,6 +22,12 @@ public record S2CScare(int type, int level) {
     public static final int EYES = 8;
     /** The red hypnosis eye. Admin test. */
     public static final int HYPNO = 9;
+    /** The carry face (scream, heartbeat) for 3 s. Admin prank. */
+    public static final int FACE = 10;
+    /** The freecam face (scream, glitch). Admin prank. */
+    public static final int FREECAM_FACE = 11;
+    /** Ends every scare on screen at once (eyes, chase, faces, text, fog spike). Admin. */
+    public static final int CLEAR = 12;
 
     public void encode(FriendlyByteBuf buf) {
         buf.writeByte(type);

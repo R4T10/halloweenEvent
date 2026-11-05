@@ -60,6 +60,8 @@ public final class ScareEffects {
     private static int freecamFaceUntil;
     private static boolean carryFace;
     private static int carryFaceStart;
+    /** Set by the admin face prank: the carry face goes away by itself at this tick (0 = until CARRY_OFF). */
+    private static int carryFaceUntil;
 
     private static float fog;
     private static float fogTarget;
@@ -129,6 +131,7 @@ public final class ScareEffects {
             }
             case S2CScare.STOP -> stopHandScares();
             case S2CScare.CARRY_ON -> {
+                carryFaceUntil = 0;   // a real carry keeps the face until CARRY_OFF
                 if (!carryFace) {
                     carryFace = true;
                     carryFaceStart = tick;
@@ -146,6 +149,14 @@ public final class ScareEffects {
                 ScreenEyes.hypnosis(80);
                 whisper(true);
             }
+            case S2CScare.FACE -> {
+                if (!carryFace) play(ModSounds.SCREAM.get(), 1.0f, 0.8f);
+                carryFace = true;
+                carryFaceStart = tick;
+                carryFaceUntil = tick + 60;
+            }
+            case S2CScare.FREECAM_FACE -> freecamCaught();
+            case S2CScare.CLEAR -> stopAll();
             default -> {}
         }
     }
@@ -186,6 +197,10 @@ public final class ScareEffects {
         if (figurePos != null && player != null) tickFigure(mc, player);
         if (chasePos != null && player != null) tickChase(mc, player);
         if (handVictim >= 0) tickGrab(mc);
+        if (carryFace && carryFaceUntil > 0 && tick >= carryFaceUntil) {
+            carryFace = false;
+            carryFaceUntil = 0;
+        }
         if (carryFace && (tick - carryFaceStart) % 25 == 0) play(ModSounds.HEARTBEAT.get(), 1.0f, 1.0f);
         if (tick < glitchUntil && tick % 8 == 0) play(ModSounds.GLITCH.get(), 0.6f, 0.5f + RNG.nextFloat() * 1.0f);
         updatePostEffect(mc);

@@ -1,7 +1,11 @@
 package com.halloweenevent.gametest;
 
 import com.halloweenevent.HalloweenEventMod;
+import com.halloweenevent.item.FlashlightItem;
 import com.halloweenevent.network.S2CScare;
+import com.halloweenevent.registry.ModItems;
+import com.halloweenevent.server.Flashlights;
+import net.minecraft.world.item.ItemStack;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
@@ -155,6 +159,74 @@ public final class ScareSystemGameTests {
             a.assertEquals(List.of(1, 2, 3, 0, 1, 0, 2), got.stream().map(S2CScare::level).toList(),
                     "figure levels 1-3, eyes swarm 0, eyes wall 1, hypno 0, chase carries the player's own level (2)");
             a.assertEquals(List.of(), a.scareTypes(bystander), "the bystander received nothing");
+            a.close();
+            helper.succeed();
+        });
+    }
+
+    /**
+     * Pranks: every effect fires at the players a selector picks and nobody else, "prank" is the same as "test",
+     * leveled scares use each target's own level unless one is given, and the per-player settings (scare level,
+     * candy count) and flashlight pranks (flicker, jinx, a lone drag) do what they say.
+     */
+    @GameTest(template = ARENA, batch = "pranks", timeoutTicks = 140)
+    public static void everyPrankReachesTheChosenPlayersOnly(GameTestHelper helper) throws CommandSyntaxException {
+        Arena a = Arena.open(helper);
+        CommandDispatcher<CommandSourceStack> d = a.server.getCommands().getDispatcher();
+        CommandSourceStack op = a.server.createCommandSourceStack().withSuppressedOutput().withPermission(4);
+        ServerPlayer one = a.bot("pr_one", 10, 1, 10);
+        ServerPlayer two = a.bot("pr_two", 20, 1, 20);
+        ServerPlayer bystander = a.bot("pr_by", 30, 1, 30);
+        one.addTag("pranked");
+        two.addTag("pranked");
+        a.data.scareLevels.put(one.getUUID(), 1);
+        a.data.scareLevels.put(two.getUUID(), 3);
+
+        a.assertEquals(2, d.execute("halloween test whisper @a[tag=pranked]", op), "whisper at both, each at their own level");
+        a.assertEquals(2, d.execute("halloween test text 2 @a[tag=pranked]", op), "text at level 2 for both");
+        a.assertEquals(1, d.execute("halloween prank face pr_one", op), "\"prank\" is \"test\": face");
+        a.assertEquals(1, d.execute("halloween test freecam pr_two", op), "freecam face");
+        a.assertEquals(1, d.execute("halloween test eyes wall pr_one", op), "eye wall");
+        a.assertEquals(1, d.execute("halloween test hypno pr_two", op), "hypno");
+        a.assertEquals(1, d.execute("halloween test chase 3 pr_one", op), "chase at a given level");
+        a.assertEquals(2, d.execute("halloween test clear @a[tag=pranked]", op), "clear both screens");
+        a.assertEquals(1, d.execute("halloween test figure", op.withEntity(one)), "no target: yourself, at your level");
+
+        a.assertEquals(1, d.execute("halloween fear pr_one 3", op), "set scare level");
+        a.assertEquals(3, a.data.levelFor(one.getUUID()), "scare level saved");
+        a.assertEquals(1, d.execute("halloween candy pr_two 7", op), "set candy count");
+        a.assertEquals(7, a.count(two), "candy count saved");
+
+        // Flashlight pranks (checked right away: with no event running the next sweep takes flashlights away).
+        ItemStack light = new ItemStack(ModItems.FLASHLIGHT.get());
+        FlashlightItem.switchOn(light, Long.MIN_VALUE, false);
+        one.getInventory().offhand.set(0, light);
+        a.assertEquals(1, d.execute("halloween test flashlight flicker 5 pr_one", op), "flashlight flicker");
+        helper.assertTrue(FlashlightItem.flickerUntil(light) > one.level().getGameTime() + 90, "flickers for 5 s");
+        a.assertEquals(1, d.execute("halloween test flashlight jinx pr_one", op), "flashlight jinx");
+        helper.assertFalse(FlashlightItem.isOn(light), "jinx kills the light");
+        Flashlights.toggle(one, light);
+        helper.assertTrue(FlashlightItem.isOn(light) && FlashlightItem.failing(light), "the jinxed switch-on gives up");
+        a.assertEquals(0, d.execute("halloween test flashlight jinx pr_by", op), "no flashlight: refused");
+
+        // A lone drag: no partner needed, the victim ends up about 10 blocks away and is then chased.
+        double startX = two.getX(), startZ = two.getZ();
+        a.assertEquals(1, d.execute("halloween test grab alone pr_two", op), "grab alone");
+        a.assertEquals(0, d.execute("halloween test grab pr_two", op), "plain grab still needs a partner");
+
+        helper.runAtTickTime(110, () -> {
+            a.assertEquals(List.of(WHISPER, TEXT, S2CScare.FREECAM_FACE, S2CScare.HYPNO, S2CScare.CLEAR, S2CScare.CHASE),
+                    a.scareTypes(two), "pr_two got its pranks in order, then the chase after the drag");
+            a.assertEquals(List.of(3, 2, 0, 0, 0, 3), a.scares(two).stream().map(S2CScare::level).toList(),
+                    "pr_two: whisper at its own level 3, text at the given 2, chase at its level 3");
+            a.assertEquals(List.of(WHISPER, TEXT, S2CScare.FACE, S2CScare.EYES, S2CScare.CHASE, S2CScare.CLEAR, FIGURE),
+                    a.scareTypes(one), "pr_one got its pranks in order");
+            a.assertEquals(List.of(1, 2, 0, 1, 3, 0, 1), a.scares(one).stream().map(S2CScare::level).toList(),
+                    "pr_one: whisper at its own level 1, text 2, eye wall 1, chase 3, figure at its level 1");
+            a.assertEquals(List.of(), a.scareTypes(bystander), "the bystander received nothing");
+            double moved = Math.hypot(two.getX() - startX, two.getZ() - startZ);
+            helper.assertTrue(moved > 6, "the lone drag moved pr_two about 10 blocks (moved " + (int) moved + ")");
+            a.assertEquals(1, a.grabs(two).size(), "the victim saw the grab once (no partner copy)");
             a.close();
             helper.succeed();
         });

@@ -76,6 +76,11 @@ public final class FlashlightClient {
             // A struggle that gave up: dark until the server's switch-off arrives.
             if (FlashlightItem.failing(stack)) return 0f;
         }
+        // Admin prank: hard flicker anywhere until the given game time.
+        if (gameTime < FlashlightItem.flickerUntil(stack)) {
+            float h = hash(player.getId(), gameTime, 6);
+            return h < 0.5f ? 0f : h < 0.75f ? 0.25f : 1f;
+        }
         if (steady || !(ClientState.active && ClientState.inZone)) return 1f;
         return eventFlicker(player.getId(), gameTime + partialTick, FlashlightItem.fear(stack));
     }

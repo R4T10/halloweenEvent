@@ -329,7 +329,21 @@ public final class EventManager {
         Flashlights.kill(victim);   // the figure takes the victim's light (event flashlight)
         S2CHandGrab msg = new S2CHandGrab(victim.getId(), (float) (dx / len), (float) (dz / len));
         Net.toPlayer(victim, msg);
-        Net.toPlayer(partner, msg);
+        if (partner != victim) Net.toPlayer(partner, msg);
+    }
+
+    /**
+     * Admin prank: the figure drags {@code victim} about {@value #DRAG_DISTANCE} blocks away from where they stand,
+     * no partner needed (nobody's hand is let go). Then the chase, as for a real grab.
+     *
+     * @return {@code null} when the drag started, otherwise the translation key explaining why not
+     */
+    public static String testGrabAlone(ServerPlayer victim) {
+        if (inGrab(victim.getUUID())) return "cmd.halloweenevent.test_grab_busy";
+        Vec3 target = findDragTarget(victim, victim, null);
+        if (target == null) return "cmd.halloweenevent.test_grab_no_spot";
+        startGrab(victim, victim, target, victim.server.getTickCount(), true);
+        return null;
     }
 
     /**
@@ -405,7 +419,7 @@ public final class EventManager {
             long age = now - g.start;
             if (g.step == 0 && age >= GRAB_REACH_TICKS) {
                 ServerPlayer partner = server.getPlayerList().getPlayer(g.partner);
-                if (partner != null) HoldHandsCompat.forceRelease(victim, partner);
+                if (partner != null && partner != victim) HoldHandsCompat.forceRelease(victim, partner);
                 victim.level().playSound(null, victim.getX(), victim.getY(), victim.getZ(), ModSounds.GRAB.get(), SoundSource.HOSTILE, 1.0f, 1.0f);
                 g.step = 1;
             }

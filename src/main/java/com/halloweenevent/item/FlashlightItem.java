@@ -32,6 +32,10 @@ public class FlashlightItem extends Item {
     private static final String TAG_START = "StartAt";
     private static final String TAG_FAIL = "Fail";
     private static final String TAG_FEAR = "Fear";
+    /** Admin prank: game time until which the light flickers hard, anywhere. */
+    private static final String TAG_FLICKER_UNTIL = "FlickerUntil";
+    /** Admin prank: the next struggling switch-on gives up for sure. */
+    private static final String TAG_JINX = "Jinx";
 
     public FlashlightItem(Properties properties) {
         super(properties.stacksTo(1));
@@ -73,6 +77,26 @@ public class FlashlightItem extends Item {
     public static boolean failing(ItemStack stack) {
         CompoundTag tag = stack.getTag();
         return tag != null && tag.getBoolean(TAG_FAIL);
+    }
+
+    /** Game time until which the light flickers hard (admin prank), or 0. */
+    public static long flickerUntil(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        return tag != null ? tag.getLong(TAG_FLICKER_UNTIL) : 0L;
+    }
+
+    public static void setFlickerUntil(ItemStack stack, long gameTime) {
+        stack.getOrCreateTag().putLong(TAG_FLICKER_UNTIL, gameTime);
+    }
+
+    public static boolean jinxed(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        return tag != null && tag.getBoolean(TAG_JINX);
+    }
+
+    public static void setJinxed(ItemStack stack, boolean jinx) {
+        if (jinx) stack.getOrCreateTag().putBoolean(TAG_JINX, true);
+        else if (stack.getTag() != null) stack.getTag().remove(TAG_JINX);
     }
 
     /** Scare level 1-3 of whoever was handed this flashlight. */

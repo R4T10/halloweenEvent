@@ -140,5 +140,9 @@
   "msg.halloweenevent.flashlight_full": "ช่องเก็บของเต็ม! เคลียร์ของ 1 ช่องเพื่อรับไฟฉาย",
   "cmd.halloweenevent.test_grab_not_holding": "%s ต้องจับมือกับผู้เล่นอีกคนก่อน (กด H ใส่กัน) แล้วค่อยรันคำสั่งนี้",
   "cmd.halloweenevent.test_grab_busy": "%s หรือคู่ของเขากำลังถูกลากอยู่ รอให้จบก่อน",
-  "cmd.halloweenevent.test_grab_no_spot": "ไม่พบจุดที่ยืนได้ห่างจากคู่ราว 10 บล็อกของ %s ลองไปที่โล่งกว่านี้"
+  "cmd.halloweenevent.test_grab_no_spot": "ไม่พบจุดที่ยืนได้ห่างจากคู่ราว 10 บล็อกของ %s ลองไปที่โล่งกว่านี้",
+  "cmd.halloweenevent.test_many": "ทดสอบ %s กับผู้เล่น %s คนแล้ว",
+  "cmd.halloweenevent.test_no_flashlight": "%s ไม่มีไฟฉาย (ได้ไฟฉายเมื่ออยู่ในโซนตอนกิจกรรมเริ่มแล้วเท่านั้น)",
+  "cmd.halloweenevent.fear": "ตั้งระดับความกลัวของผู้เล่น %s คนเป็น %s แล้ว",
+  "cmd.halloweenevent.candy": "ตั้งลูกอมของผู้เล่น %s คนเป็น %s/%s แล้ว"
 }
