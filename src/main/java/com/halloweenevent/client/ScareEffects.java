@@ -1,6 +1,7 @@
 package com.halloweenevent.client;
 
 import com.halloweenevent.HalloweenEventMod;
+import com.halloweenevent.data.ScareKind;
 import com.halloweenevent.network.S2CScare;
 import com.halloweenevent.registry.ModSounds;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -44,6 +45,8 @@ public final class ScareEffects {
     private static final ResourceLocation STATIC = tex("textures/misc/static.png");
     private static final ResourceLocation SCREEN_HAND = tex("textures/misc/screen_hand.png");
     private static final ResourceLocation GLITCH_POST = tex("shaders/post/glitch.json");
+    /** Scare fog at the 30 s stage: identical at levels 1, 2 and 3 (only level 3 tints it red). */
+    private static final float FOG_PEAK = 1.0f;
     private static final int HORROR_LINES = 16;
     private static final int MAX_TEXTS = 16;
     private static final RandomSource RNG = RandomSource.create();
@@ -58,13 +61,15 @@ public final class ScareEffects {
     private static int freecamFaceUntil;
     private static boolean carryFace;
     private static int carryFaceStart;
+    /** Set by the admin face prank: the carry face goes away by itself at this tick (0 = until CARRY_OFF). */
+    private static int carryFaceUntil;
 
     private static float fog;
     private static float fogTarget;
     private static boolean fogRed;
 
     private static Vec3 figurePos;
-    private static FigureModels.Kind figureKind = FigureModels.Kind.TALL;
+    private static FigureModels.Kind figureKind = FigureModels.Kind.HATTED;
     private static int figureStart;
     private static int figureEnd;
     private static int figureLevel;
@@ -75,7 +80,7 @@ public final class ScareEffects {
 
     /** Victim-only chaser after a hand grab. */
     private static Vec3 chasePos;
-    private static FigureModels.Kind chaseKind = FigureModels.Kind.TALL;
+    private static FigureModels.Kind chaseKind = FigureModels.Kind.HATTED;
     private static int chaseEnd;
     private static int nextStep;
 
@@ -84,7 +89,7 @@ public final class ScareEffects {
     private static float handDirX;
     private static float handDirZ;
     private static int handStart;
-    private static FigureModels.Kind grabKind = FigureModels.Kind.TALL;
+    private static FigureModels.Kind grabKind = FigureModels.Kind.HATTED;
     private static final int GRAB_REACH = 12;
     private static final int GRAB_END = GRAB_REACH + 24;
     private static final int GRAB_TICKS = GRAB_END + 10;
@@ -109,6 +114,7 @@ public final class ScareEffects {
             case S2CScare.TEXT -> {
                 whisper(true);
                 spawnTexts(level >= 3 ? 8 : 5, 90);
+                if (level >= 2) ScreenEyes.swarm(level >= 3 ? 10 : 6, 70);
                 fogTo(0.6f, level >= 3);
                 if (level >= 3) {
                     glitch(40);
@@ -116,7 +122,7 @@ public final class ScareEffects {
                 }
             }
             case S2CScare.FIGURE -> {
-                fogTo(level >= 3 ? 1.0f : 0.85f, level >= 3);
+                fogTo(FOG_PEAK, level >= 3); // same thickness at every level; only level 3 turns red
                 if (level <= 1) {
                     whisper(true);
                     spawnTexts(6, 90);
@@ -126,6 +132,7 @@ public final class ScareEffects {
             }
             case S2CScare.STOP -> stopHandScares();
             case S2CScare.CARRY_ON -> {
+                carryFaceUntil = 0;   // a real carry keeps the face until CARRY_OFF
                 if (!carryFace) {
                     carryFace = true;
                     carryFaceStart = tick;
@@ -133,15 +140,33 @@ public final class ScareEffects {
                 }
             }
             case S2CScare.CARRY_OFF -> carryFace = false;
-            case S2CScare.CHASE -> startChase(mc);
+            case S2CScare.CHASE -> startChase(mc, level);
+            case S2CScare.EYES -> {
+                if (level >= 1) ScreenEyes.wall(40);
+                else ScreenEyes.swarm(10, 80);
+                whisper(true);
+            }
+            case S2CScare.HYPNO -> {
+                ScreenEyes.hypnosis(80);
+                whisper(true);
+            }
+            case S2CScare.FACE -> {
+                if (!carryFace) play(ModSounds.SCREAM.get(), 1.0f, 0.8f);
+                carryFace = true;
+                carryFaceStart = tick;
+                carryFaceUntil = tick + 60;
+            }
+            case S2CScare.FREECAM_FACE -> freecamCaught();
+            case S2CScare.CLEAR -> stopAll();
             default -> {}
         }
     }
 
     public static void freecamCaught() {
+        glitch(20);
+        if (!ClientState.allows(ScareKind.FACE)) return;
         if (tick >= freecamFaceUntil) play(ModSounds.SCREAM.get(), 1.0f, 1.1f);
         freecamFaceUntil = tick + 60;
-        glitch(20);
     }
 
     /** Hand-holding resumed: everything fades out, the fog included. */
@@ -154,6 +179,7 @@ public final class ScareEffects {
     }
 
     public static void stopAll() {
+        ScreenEyes.clear();
         stopHandScares();
         chasePos = null;
         handVictim = -1;
@@ -173,6 +199,10 @@ public final class ScareEffects {
         if (figurePos != null && player != null) tickFigure(mc, player);
         if (chasePos != null && player != null) tickChase(mc, player);
         if (handVictim >= 0) tickGrab(mc);
+        if (carryFace && carryFaceUntil > 0 && tick >= carryFaceUntil) {
+            carryFace = false;
+            carryFaceUntil = 0;
+        }
         if (carryFace && (tick - carryFaceStart) % 25 == 0) play(ModSounds.HEARTBEAT.get(), 1.0f, 1.0f);
         if (tick < glitchUntil && tick % 8 == 0) play(ModSounds.GLITCH.get(), 0.6f, 0.5f + RNG.nextFloat() * 1.0f);
         updatePostEffect(mc);
@@ -201,10 +231,10 @@ public final class ScareEffects {
             figurePos = new Vec3(player.getX() + look.x * 1.8, player.getY(), player.getZ() + look.z * 1.8);
             figureLunged = true;
             figureEnd = tick + 22;
-            flashUntil = tick + 8;
+            jumpscare(8, 0.7f);
+            ScreenEyes.wall(30);
             glitch(45);
             shake(30);
-            play(ModSounds.SCREAM.get(), 1.0f, 0.7f);
             play(ModSounds.STINGER.get(), 1.0f, 0.5f);
         } else if (figureLevel == 2 && !figureSeen && isLookingAt(player, figurePos)) {
             // Level 2: it vanishes shortly after you notice it.
@@ -227,6 +257,7 @@ public final class ScareEffects {
      * because a single soul-sand whisper sample is too quiet to notice during gameplay.
      */
     private static void whisper(boolean loud) {
+        if (!ClientState.allows(ScareKind.WHISPER)) return;
         SoundEvent soft = ModSounds.WHISPER.get();
         playPanned(soft, 1.0f, 0.85f + RNG.nextFloat() * 0.1f, -2.0, -1.0);
         playPanned(soft, 1.0f, 0.75f + RNG.nextFloat() * 0.1f, 2.0, -1.0);
@@ -234,6 +265,7 @@ public final class ScareEffects {
     }
 
     private static void spawnTexts(int n, int duration) {
+        if (!ClientState.allows(ScareKind.TEXT)) return;
         for (int i = 0; i < n && TEXTS.size() < MAX_TEXTS; i++) {
             int start = tick + i * 6;
             TEXTS.add(new Text(Component.translatable("horror.halloweenevent." + RNG.nextInt(HORROR_LINES)),
@@ -243,11 +275,12 @@ public final class ScareEffects {
 
     private static void spawnFigure(Minecraft mc, int level) {
         Player p = mc.player;
-        if (p == null || mc.level == null) return;
+        if (p == null || mc.level == null || !ClientState.allows(ScareKind.FIGURE)) return;
         FigureModels.Kind[] kinds = FigureModels.Kind.values();
         FigureModels.Kind next = kinds[RNG.nextInt(kinds.length)];
         if (next == figureKind) next = kinds[(next.ordinal() + 1) % kinds.length];
         figureKind = next;
+        if (figureKind == FigureModels.Kind.HATTED) ScreenEyes.hypnosis(level >= 3 ? 50 : 30);
 
         double yaw = Math.toRadians(p.getYRot() + (RNG.nextBoolean() ? 50 : -50));
         double dist = level >= 3 ? 9 : 7;
@@ -278,6 +311,7 @@ public final class ScareEffects {
     }
 
     private static void spawnText(String key, int duration) {
+        if (!ClientState.allows(ScareKind.TEXT)) return;
         if (TEXTS.size() >= MAX_TEXTS) return;
         TEXTS.add(new Text(Component.translatable(key), 0.5f, 0.3f + RNG.nextFloat() * 0.4f, tick, tick + duration, 2));
     }
@@ -285,13 +319,14 @@ public final class ScareEffects {
     // ---- hand grab + chase ----
 
     public static void handGrab(int victimId, float dirX, float dirZ) {
+        if (!ClientState.allows(ScareKind.GRAB)) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.level.getEntity(victimId) == null) return;
         handVictim = victimId;
         handDirX = dirX;
         handDirZ = dirZ;
         handStart = tick;
-        FigureModels.Kind[] pullers = {FigureModels.Kind.TALL, FigureModels.Kind.SMILER, FigureModels.Kind.BROKEN};
+        FigureModels.Kind[] pullers = {FigureModels.Kind.HATTED, FigureModels.Kind.RED_THIN, FigureModels.Kind.GRINNER};
         grabKind = pullers[RNG.nextInt(pullers.length)];
         if (mc.player != null && mc.player.getId() == victimId) {
             Vec3 look = mc.player.getLookAngle();
@@ -302,6 +337,7 @@ public final class ScareEffects {
             glitch(20);
             shake(GRAB_END);
             spawnText("horror.halloweenevent.grab", 50);
+            ScreenEyes.swarm(8, 40);
         }
     }
 
@@ -326,7 +362,8 @@ public final class ScareEffects {
         return new Vec3(v.x + handDirX * off, v.y, v.z + handDirZ * off);
     }
 
-    private static void startChase(Minecraft mc) {
+    private static void startChase(Minecraft mc, int level) {
+        if (!ClientState.allows(ScareKind.CHASE)) return;
         Player p = mc.player;
         if (p == null || mc.level == null) return;
         Vec3 look = p.getLookAngle();
@@ -341,7 +378,8 @@ public final class ScareEffects {
         play(ModSounds.STINGER.get(), 1.0f, 0.6f);
         play(ModSounds.SCREAM.get(), 0.8f, 0.5f);
         spawnText("horror.halloweenevent.chase_start", 40);
-        fogTo(0.7f, true);
+        ScreenEyes.swarm(10, 60);
+        fogTo(0.7f, level >= 3);
     }
 
     /** Straight-line pursuit at just under sprint speed; passes through walls (it is a hallucination). */
@@ -356,10 +394,10 @@ public final class ScareEffects {
         double dist = Math.sqrt(to.x * to.x + to.z * to.z);
         if (dist < 1.2 && Math.abs(to.y) < 2.5) {
             chasePos = null;
-            flashUntil = tick + 10;
+            jumpscare(10, 0.9f);
+            ScreenEyes.wall(25);
             glitch(30);
             shake(25);
-            play(ModSounds.SCREAM.get(), 1.0f, 0.9f);
             return;
         }
         double nx = chasePos.x + to.x / dist * 0.26, nz = chasePos.z + to.z / dist * 0.26;
@@ -380,11 +418,20 @@ public final class ScareEffects {
         if (red) fogRed = true;
     }
 
+    /** The screaming face flash of a jumpscare (not for players exempt from faces). */
+    private static void jumpscare(int ticks, float pitch) {
+        if (!ClientState.allows(ScareKind.FACE)) return;
+        flashUntil = tick + ticks;
+        play(ModSounds.SCREAM.get(), 1.0f, pitch);
+    }
+
     private static void glitch(int ticks) {
+        if (!ClientState.allows(ScareKind.GLITCH)) return;
         glitchUntil = Math.max(glitchUntil, tick + ticks);
     }
 
     private static void shake(int ticks) {
+        if (!ClientState.allows(ScareKind.GLITCH)) return;
         shakeUntil = Math.max(shakeUntil, tick + ticks);
     }
 
@@ -482,6 +529,7 @@ public final class ScareEffects {
             g.pose().popPose();
         }
 
+        ScreenEyes.render(g, partialTick, w, h);
         if (tick < glitchUntil) renderGlitch(g, partialTick, w, h);
         if (tick - screenHandStart < GRAB_TICKS) renderScreenHand(g, tick - screenHandStart + partialTick, w, h);
 
@@ -496,7 +544,7 @@ public final class ScareEffects {
             if (full) g.fill(0, 0, w, h, 0xFF000000);
             RenderSystem.enableBlend();
             g.setColor(1f, 1f, 1f, alpha);
-            g.blit(FACE, x, y, size, size, 0, 0, 256, 256, 256, 256);
+            g.blit(FACE, x, y, size, size, 0, 0, 512, 512, 512, 512);
             g.setColor(1f, 1f, 1f, 1f);
             RenderSystem.disableBlend();
         }
@@ -521,9 +569,9 @@ public final class ScareEffects {
         g.blit(VIGNETTE, 0, 0, w, h, 0, 0, 256, 256, 256, 256);
         g.setColor(1f, 1f, 1f, Math.min(1f, show * 1.4f));
         if (screenHandSide < 0) {
-            g.blit(SCREEN_HAND, -size + reach + jx, y, size, size, 0, 0, 256, 256, 256, 256);
+            g.blit(SCREEN_HAND, -size + reach + jx, y, size, size, 0, 0, 512, 512, 512, 512);
         } else {
-            g.blit(SCREEN_HAND, w - reach + jx, y, size, size, 256, 0, -256, 256, 256, 256);
+            g.blit(SCREEN_HAND, w - reach + jx, y, size, size, 512, 0, -512, 512, 512, 512);
         }
         g.setColor(1f, 1f, 1f, 1f);
         RenderSystem.disableBlend();
@@ -541,9 +589,9 @@ public final class ScareEffects {
         RenderSystem.enableBlend();
         float r = (fogRed ? 0.75f : 0.8f) * brightness, gb = (fogRed ? 0.55f : 0.82f) * brightness;
         g.setColor(r, gb, gb, strength * 0.45f);
-        g.blit(MIST, 0, 0, w, h, time * 0.35f, time * 0.08f, w / 2, h / 2, 128, 128);
+        g.blit(MIST, 0, 0, w, h, time * 0.7f, time * 0.16f, w, h, 256, 256);
         g.setColor(r, gb, gb, strength * 0.3f);
-        g.blit(MIST, 0, 0, w, h, -time * 0.22f, time * 0.15f + 40, w / 3, h / 3, 128, 128);
+        g.blit(MIST, 0, 0, w, h, -time * 0.44f, time * 0.3f + 80, w * 2 / 3, h * 2 / 3, 256, 256);
         if (vignette > 0.01f) {
             g.setColor(fogRed ? 0.25f : 0f, 0f, 0f, vignette);
             g.blit(VIGNETTE, 0, 0, w, h, 0, 0, 256, 256, 256, 256);

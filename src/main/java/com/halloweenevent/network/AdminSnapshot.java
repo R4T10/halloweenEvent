@@ -11,6 +11,9 @@ import java.util.UUID;
 
 /** Read-only view of the event settings sent to an admin's GUI. */
 public final class AdminSnapshot {
+    /** A player exempt from some scares: name as typed, blocked {@link com.halloweenevent.data.ScareKind} mask. */
+    public record ExemptRow(String name, int blocked) {}
+
     public record PlayerRow(UUID id, String name, boolean online, boolean inZone, int count, boolean completed, int level, boolean freecam) {}
 
     public boolean active;
@@ -32,6 +35,7 @@ public final class AdminSnapshot {
     public boolean carryOnLoaded;
     public int grabIntervalSeconds;
     public final List<PlayerRow> players = new ArrayList<>();
+    public final List<ExemptRow> exemptions = new ArrayList<>();
 
     public void write(FriendlyByteBuf buf) {
         buf.writeBoolean(active);
@@ -63,6 +67,11 @@ public final class AdminSnapshot {
             buf.writeVarInt(r.level());
             buf.writeBoolean(r.freecam());
         }
+        buf.writeVarInt(exemptions.size());
+        for (ExemptRow e : exemptions) {
+            buf.writeUtf(e.name(), 64);
+            buf.writeVarInt(e.blocked());
+        }
     }
 
     public static AdminSnapshot read(FriendlyByteBuf buf) {
@@ -90,6 +99,8 @@ public final class AdminSnapshot {
             s.players.add(new PlayerRow(buf.readUUID(), buf.readUtf(64), buf.readBoolean(), buf.readBoolean(),
                     buf.readVarInt(), buf.readBoolean(), buf.readVarInt(), buf.readBoolean()));
         }
+        int e = buf.readVarInt();
+        for (int i = 0; i < e; i++) s.exemptions.add(new ExemptRow(buf.readUtf(64), buf.readVarInt()));
         return s;
     }
 }

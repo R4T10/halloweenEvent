@@ -4,6 +4,7 @@ import com.halloweenevent.HalloweenEventMod;
 import com.halloweenevent.compat.CarryOnCompat;
 import com.halloweenevent.compat.HoldHandsCompat;
 import com.halloweenevent.data.EventData;
+import com.halloweenevent.data.ScareKind;
 import com.halloweenevent.data.EventData.CandyMode;
 import com.halloweenevent.data.EventData.CandySpawn;
 import com.halloweenevent.network.Net;
@@ -73,13 +74,16 @@ public final class EventManager {
         final UUID partner;
         final Vec3 target;
         final long start;
+        /** Admin test: keeps running even when the victim is outside the zone or the event is stopped. */
+        final boolean test;
         int step;
 
-        Grab(UUID victim, UUID partner, Vec3 target, long start) {
+        Grab(UUID victim, UUID partner, Vec3 target, long start, boolean test) {
             this.victim = victim;
             this.partner = partner;
             this.target = target;
             this.start = start;
+            this.test = test;
         }
     }
 
@@ -97,9 +101,12 @@ public final class EventManager {
         if (!GRABS.isEmpty()) tickGrabs(server, server.getTickCount());
         if (ticks % UPDATE_INTERVAL != 0) return;
         EventData d = EventData.get(server);
-        if (!d.active) return;
         AABB zone = d.zone();
-        if (zone == null) return;
+        if (!d.active || zone == null) {
+            // No event: nobody keeps a flashlight (spares from creative, a crash mid-event, ...).
+            if (ticks % 20 == 0) Flashlights.stripAll(server);
+            return;
+        }
         long now = server.getTickCount();
         for (ServerPlayer sp : server.getPlayerList().getPlayers()) {
             updatePlayer(sp, d, now);
@@ -117,6 +124,8 @@ public final class EventManager {
         } else if (!inside && s.inside) {
             exit(sp, d, s, true);
         }
+        int fear = Mth.clamp(d.levelFor(sp.getUUID()), 1, 3);
+        Flashlights.syncInventory(sp, inside, fear);
         if (!inside) return;
 
         boolean holding = HoldHandsCompat.isHolding(sp);
@@ -128,6 +137,7 @@ public final class EventManager {
         if (!p.completed) {
             if (p.count < d.target) collectCandies(sp, d, p, now);
             updateHoldScares(sp, d, s, now);
+            Flashlights.randomKill(sp, s.holding, now, fear);
         }
         updateCarry(sp, d, s, now);
         updateGrab(sp, d, s, now);
@@ -212,11 +222,13 @@ public final class EventManager {
         } else if (s.stage == 1 && alone >= TEXT_TICKS) {
             s.stage = 2;
             sendScare(sp, s, S2CScare.TEXT, level);
+            if (level >= 2) Flashlights.kill(sp);
         } else if (s.stage == 2 && alone >= FIGURE_TICKS) {
             sendScare(sp, s, S2CScare.FIGURE, level);
+            Flashlights.kill(sp);
             if (level >= 3) {
-                applyFog(sp, s, MobEffects.BLINDNESS, 50);
-                sp.hurt(sp.damageSources().magic(), 1.0f);
+                if (d.allows(sp, ScareKind.FIGURE)) applyFog(sp, s, MobEffects.BLINDNESS, 50);
+                if (d.allows(sp, ScareKind.DAMAGE)) sp.hurt(sp.damageSources().magic(), 1.0f);
             }
             // One damage point per sequence; the next sequence restarts the 5/15/30 s ladder.
             s.stage = 0;
@@ -224,9 +236,18 @@ public final class EventManager {
         }
     }
 
+    /** The ladder still advances for an exempt player; they just never receive that step. */
     private static void sendScare(ServerPlayer sp, Session s, int type, int level) {
+        if (!sendIfAllowed(sp, type, level)) return;
         s.scareShown = true;
+    }
+
+    /** Sends a scare unless the player is exempt from its kind. @return true if it was sent */
+    public static boolean sendIfAllowed(ServerPlayer sp, int type, int level) {
+        ScareKind kind = S2CScare.kindOf(type);
+        if (kind != null && !EventData.get(sp.server).allows(sp, kind)) return false;
         Net.toPlayer(sp, new S2CScare(type, level));
+        return true;
     }
 
     /** Level 3 figure: a short vanilla Blindness pulse (hidden icon, no particles); shader packs honour it too. */
@@ -254,7 +275,8 @@ public final class EventManager {
         if (carrying != s.carrying) {
             s.carrying = carrying;
             s.carryStart = now;
-            Net.toPlayer(sp, new S2CScare(carrying ? S2CScare.CARRY_ON : S2CScare.CARRY_OFF, 0));
+            if (carrying) sendIfAllowed(sp, S2CScare.CARRY_ON, 0);
+            else Net.toPlayer(sp, new S2CScare(S2CScare.CARRY_OFF, 0));
         }
         if (carrying && d.carryDropSeconds > 0 && now - s.carryStart >= d.carryDropSeconds * 20L) {
             CarryOnCompat.forceDrop(sp);
@@ -303,45 +325,71 @@ public final class EventManager {
         s.grabCheckAt = now + interval;
         if (sp.getRandom().nextBoolean()) return;
 
-        boolean first = sp.getRandom().nextBoolean();
+        // Only someone not exempt from the drag can be taken; with both exempt nobody is.
+        boolean spOk = d.allows(sp, ScareKind.GRAB), partnerOk = d.allows(partner, ScareKind.GRAB);
+        if (!spOk && !partnerOk) return;
+        boolean first = spOk && (!partnerOk || sp.getRandom().nextBoolean());
         ServerPlayer victim = first ? sp : partner;
         ServerPlayer other = first ? partner : sp;
-        Vec3 target = findDragTarget(victim, other, d);
+        Vec3 target = findDragTarget(victim, other, d.zone());
         if (target == null) return;
-        startGrab(victim, other, target, now);
+        startGrab(victim, other, target, now, false);
     }
 
-    /** @param partner may be {@code null} (admin test without a partner): nothing to release, nobody else notified. */
-    private static void startGrab(ServerPlayer victim, ServerPlayer partner, Vec3 target, long now) {
+    private static void startGrab(ServerPlayer victim, ServerPlayer partner, Vec3 target, long now, boolean test) {
         double dx = target.x - victim.getX(), dz = target.z - victim.getZ();
         double len = Math.max(0.01, Math.sqrt(dx * dx + dz * dz));
-        GRABS.add(new Grab(victim.getUUID(), partner != null ? partner.getUUID() : victim.getUUID(), target, now));
+        GRABS.add(new Grab(victim.getUUID(), partner.getUUID(), target, now, test));
+        Flashlights.kill(victim);   // the figure takes the victim's light (event flashlight)
         S2CHandGrab msg = new S2CHandGrab(victim.getId(), (float) (dx / len), (float) (dz / len));
         Net.toPlayer(victim, msg);
-        if (partner != null) Net.toPlayer(partner, msg);
+        // The partner sees the figure take the victim, unless they are exempt from that sight.
+        if (partner != victim && EventData.get(victim.server).allows(partner, ScareKind.GRAB)) Net.toPlayer(partner, msg);
     }
 
     /**
-     * Admin test: start a drag right now. Needs an active event with the player inside the zone. Uses their
-     * hand-holding partner as the anchor if they have one, otherwise drags them ~10 blocks from where they stand.
+     * Admin prank: the figure drags {@code victim} about {@value #DRAG_DISTANCE} blocks away from where they stand,
+     * no partner needed (nobody's hand is let go). Then the chase, as for a real grab.
+     *
+     * @return {@code null} when the drag started, otherwise the translation key explaining why not
      */
-    public static boolean testGrab(ServerPlayer victim) {
-        EventData d = EventData.get(victim.server);
-        if (!d.active || !isInside(victim.getUUID()) || inGrab(victim.getUUID())) return false;
-        ServerPlayer partner = HoldHandsCompat.partner(victim);
-        Vec3 target = findDragTarget(victim, partner != null ? partner : victim, d);
-        if (target == null) return false;
-        startGrab(victim, partner, target, victim.server.getTickCount());
-        return true;
+    public static String testGrabAlone(ServerPlayer victim) {
+        if (!EventData.get(victim.server).allows(victim, ScareKind.GRAB)) return "cmd.halloweenevent.exempt";
+        if (inGrab(victim.getUUID())) return "cmd.halloweenevent.test_grab_busy";
+        Vec3 target = findDragTarget(victim, victim, null);
+        if (target == null) return "cmd.halloweenevent.test_grab_no_spot";
+        startGrab(victim, victim, target, victim.server.getTickCount(), true);
+        return null;
     }
 
-    /** A random standable spot inside the zone, about {@value #DRAG_DISTANCE} blocks from the partner. */
-    private static Vec3 findDragTarget(ServerPlayer victim, ServerPlayer partner, EventData d) {
-        AABB zone = d.zone();
-        if (zone == null) return null;
+    /**
+     * Admin test: drag {@code victim} away from the player they are holding hands with, right now, every time.
+     * Works anywhere: no running event, no zone and no random chance needed. The drag target is any standable
+     * spot about {@value #DRAG_DISTANCE} blocks from the partner, inside the zone when the pair is standing in it.
+     *
+     * @return {@code null} when the drag started, otherwise the translation key explaining why not
+     */
+    public static String testGrab(ServerPlayer victim) {
+        if (!EventData.get(victim.server).allows(victim, ScareKind.GRAB)) return "cmd.halloweenevent.exempt";
+        ServerPlayer partner = HoldHandsCompat.partner(victim);
+        if (partner == null) return "cmd.halloweenevent.test_grab_not_holding";
+        if (inGrab(victim.getUUID()) || inGrab(partner.getUUID())) return "cmd.halloweenevent.test_grab_busy";
+        EventData d = EventData.get(victim.server);
+        Vec3 target = findDragTarget(victim, partner, d.isInZone(partner) ? d.zone() : null);
+        if (target == null) return "cmd.halloweenevent.test_grab_no_spot";
+        startGrab(victim, partner, target, victim.server.getTickCount(), true);
+        return null;
+    }
+
+    /**
+     * A random standable spot about {@value #DRAG_DISTANCE} blocks from the partner.
+     *
+     * @param zone the spot must lie inside it; {@code null} means no restriction
+     */
+    private static Vec3 findDragTarget(ServerPlayer victim, ServerPlayer partner, AABB zone) {
         ServerLevel level = victim.serverLevel();
         RandomSource r = victim.getRandom();
-        for (int attempt = 0; attempt < 24; attempt++) {
+        for (int attempt = 0; attempt < 48; attempt++) {
             double angle = r.nextDouble() * Math.PI * 2;
             double dist = DRAG_DISTANCE - 1 + r.nextDouble() * 2;
             double x = partner.getX() + Math.cos(angle) * dist;
@@ -350,7 +398,7 @@ public final class EventManager {
             for (int i = 0; i < 10; i++, m.move(Direction.DOWN)) {
                 if (!standable(level, m)) continue;
                 Vec3 spot = new Vec3(m.getX() + 0.5, m.getY(), m.getZ() + 0.5);
-                if (zone.contains(spot.add(0, 0.5, 0))) return spot;
+                if (zone == null || zone.contains(spot.add(0, 0.5, 0))) return spot;
                 break;
             }
         }
@@ -381,14 +429,14 @@ public final class EventManager {
         while (it.hasNext()) {
             Grab g = it.next();
             ServerPlayer victim = server.getPlayerList().getPlayer(g.victim);
-            if (victim == null || !victim.isAlive() || !isInside(g.victim)) {
+            if (victim == null || !victim.isAlive() || (!g.test && !isInside(g.victim))) {
                 it.remove();
                 continue;
             }
             long age = now - g.start;
             if (g.step == 0 && age >= GRAB_REACH_TICKS) {
                 ServerPlayer partner = server.getPlayerList().getPlayer(g.partner);
-                if (partner != null) HoldHandsCompat.forceRelease(victim, partner);
+                if (partner != null && partner != victim) HoldHandsCompat.forceRelease(victim, partner);
                 victim.level().playSound(null, victim.getX(), victim.getY(), victim.getZ(), ModSounds.GRAB.get(), SoundSource.HOSTILE, 1.0f, 1.0f);
                 g.step = 1;
             }
@@ -401,7 +449,7 @@ public final class EventManager {
                     g.step = 2;
                 }
             } else if (g.step == 2 && age >= GRAB_CHASE_AT) {
-                Net.toPlayer(victim, new S2CScare(S2CScare.CHASE, 0));
+                sendIfAllowed(victim, S2CScare.CHASE, EventData.get(server).levelFor(g.victim));
                 it.remove();
             }
         }
@@ -424,17 +472,19 @@ public final class EventManager {
         Session s = SESSIONS.get(sp.getUUID());
         Net.toPlayer(sp, new S2CStatus(d.active, s != null && s.inside, p != null && p.completed, d.freecamGuard,
                 s != null && s.holding,
-                p == null ? 0 : p.count, d.target));
+                p == null ? 0 : p.count, d.target, d.blockedFor(sp)));
     }
 
     public static void sendCandies(ServerPlayer sp, EventData d) {
         List<S2CCandySync.Entry> list = new ArrayList<>();
-        if (d.active) {
+        // An operator holding the candy stick sees every spawn, taken or not, even with the event stopped.
+        boolean editing = CandyWand.isEditing(sp);
+        if (d.active || editing) {
             EventData.Progress p = d.progress.get(sp.getUUID());
             for (CandySpawn c : d.spawns) {
-                boolean hidden = d.mode == CandyMode.PER_PLAYER
+                boolean hidden = !editing && (d.mode == CandyMode.PER_PLAYER
                         ? p != null && p.collected.contains(c.id())
-                        : SHARED_TAKEN.containsKey(c.id());
+                        : SHARED_TAKEN.containsKey(c.id()));
                 list.add(new S2CCandySync.Entry(c.id(), c.pos(), c.variant(), hidden));
             }
         }
@@ -476,6 +526,7 @@ public final class EventManager {
         }
         d.active = false;
         d.setDirty();
+        Flashlights.stripAll(server);
         SESSIONS.clear();
         SHARED_TAKEN.clear();
         GRABS.clear();
@@ -492,6 +543,7 @@ public final class EventManager {
 
     public static void onLogout(ServerPlayer sp) {
         Session s = SESSIONS.remove(sp.getUUID());
+        Flashlights.forget(sp.getUUID());
         if (s != null && s.fogApplied) {
             sp.removeEffect(MobEffects.DARKNESS);
             sp.removeEffect(MobEffects.BLINDNESS);
@@ -538,6 +590,7 @@ public final class EventManager {
     public static void setFreecam(ServerPlayer sp, boolean active) {
         Session s = SESSIONS.get(sp.getUUID());
         if (s == null || s.freecam == active) return;
+        if (active && !s.inside) return;   // only meaningful inside the zone: ignore stray or spammed reports
         s.freecam = active;
         if (active) {
             HalloweenEventMod.LOGGER.info("{} tried to use a free camera inside the Halloween zone", sp.getGameProfile().getName());

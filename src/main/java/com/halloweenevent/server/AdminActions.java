@@ -6,6 +6,7 @@ import com.halloweenevent.compat.HoldHandsCompat;
 import com.halloweenevent.data.EventData;
 import com.halloweenevent.data.EventData.CandyMode;
 import com.halloweenevent.data.EventData.CandySpawn;
+import com.halloweenevent.data.ScareKind;
 import com.halloweenevent.network.AdminAction;
 import com.halloweenevent.network.AdminSnapshot;
 import com.halloweenevent.network.Net;
@@ -22,14 +23,18 @@ import net.minecraft.world.phys.AABB;
 
 import javax.annotation.Nullable;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 /** Validates and applies admin GUI actions. Permission is re-checked on every packet. */
 public final class AdminActions {
     private static final int PERMISSION = 2;
-    private static final int MAX_SPAWNS = 256;
+    static final int MAX_SPAWNS = 256;
     private static final int MAX_ROWS = 100;
+    private static final int MAX_EXEMPTIONS = 200;
+    private static final Pattern VALID_NAME = Pattern.compile("[A-Za-z0-9_]{3,16}");
 
     private AdminActions() {}
 
@@ -124,6 +129,39 @@ public final class AdminActions {
                 d.freecamGuard = !d.freecamGuard;
                 resync = true;
             }
+            case AdminAction.SET_EXEMPTION -> {
+                String name = text.strip();
+                if (!VALID_NAME.matcher(name).matches()) {
+                    fail(sp, "msg.halloweenevent.admin.bad_name");
+                    return;
+                }
+                String key = name.toLowerCase(Locale.ROOT);
+                if (!d.exemptions.containsKey(key) && d.exemptions.size() >= MAX_EXEMPTIONS) {
+                    fail(sp, "msg.halloweenevent.admin.too_many_exemptions");
+                    return;
+                }
+                // Keep the spelling of an online player, else the first one typed.
+                ServerPlayer online = server.getPlayerList().getPlayerByName(name);
+                String display = online != null ? online.getGameProfile().getName()
+                        : d.exemptions.containsKey(key) ? d.exemptions.get(key).name() : name;
+                d.exemptions.put(key, new EventData.Exemption(display, value & ScareKind.ALL));
+                info(sp, "msg.halloweenevent.admin.exemption_saved", display);
+                if (online != null) EventManager.sendStatus(online, d);
+            }
+            case AdminAction.REMOVE_EXEMPTION -> {
+                EventData.Exemption removed = d.exemptions.remove(text.strip().toLowerCase(Locale.ROOT));
+                if (removed == null) return;
+                info(sp, "msg.halloweenevent.admin.exemption_removed", removed.name());
+                ServerPlayer online = server.getPlayerList().getPlayerByName(removed.name());
+                if (online != null) EventManager.sendStatus(online, d);
+            }
+            case AdminAction.GIVE_CANDY_WAND -> {
+                if (!sp.getInventory().add(CandyWand.create())) fail(sp, "msg.halloweenevent.admin.inventory_full");
+            }
+            case AdminAction.WAND_REMOVE -> {
+                CandyWand.remove(sp);
+                return;
+            }
             default -> {
                 return;
             }
@@ -213,6 +251,7 @@ public final class AdminActions {
                     pr.count, pr.completed, d.levelFor(e.getKey()), false));
         }
         rows.values().stream().limit(MAX_ROWS).forEach(s.players::add);
+        d.exemptions.values().forEach(e -> s.exemptions.add(new AdminSnapshot.ExemptRow(e.name(), e.blocked())));
         Net.toPlayer(sp, new S2CAdminData(s, open));
     }
 

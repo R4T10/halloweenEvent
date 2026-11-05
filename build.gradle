@@ -21,15 +21,54 @@ minecraft {
         configureEach {
             workingDirectory project.file('run')
             property 'forge.logging.console.level', 'info'
+            // Mixin mods in the dev run (Embeddium, Oculus) ship SRG refmaps; remap them to the dev names.
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
             mods {
                 "${mod_id}" {
                     source sourceSets.main
                 }
             }
         }
-        client {}
+        client {
+            // gradlew runClient -PflashlightTest: opens the "flashlight_test" save (a copy, it gets blocks built
+            // in it) and runs the automated flashlight screenshots (client/FlashlightSelfTest).
+            if (project.hasProperty('flashlightTest')) {
+                args '--quickPlaySingleplayer', 'flashlight_test', '--width', '1920', '--height', '1080'
+                property 'halloweenevent.flashlightSelfTest', 'true'
+            }
+            // gradlew runClient -PscareTest: same save; plays every jumpscare and saves screenshots/scare_*.png
+            // (client/ScareSelfTest).
+            if (project.hasProperty('scareTest')) {
+                args '--quickPlaySingleplayer', 'flashlight_test', '--width', '1920', '--height', '1080'
+                property 'halloweenevent.scareSelfTest', 'true'
+            }
+            // gradlew runClient -PgrabTest: a bot partner holds your hand, then the figure drags one of you away
+            // (third person); saves screenshots/grab_*.png (client/GrabSelfTest).
+            if (project.hasProperty('grabTest')) {
+                args '--quickPlaySingleplayer', 'flashlight_test', '--width', '1920', '--height', '1080'
+                property 'halloweenevent.grabSelfTest', 'true'
+            }
+            // gradlew runClient -PmpUser=PlayerA: joins the dedicated server on 127.0.0.1 as PlayerA from its own
+            // folder (run_mp/PlayerA), acting as a player for tools/mp_test.mjs (client/MultiplayerObserver).
+            // No --quickPlayMultiplayer: connecting while mods still load hung the Forge handshake; the observer
+            // connects from the title screen instead.
+            if (project.hasProperty('mpUser')) {
+                workingDirectory project.file("run_mp/${project.property('mpUser')}")
+                args '--username', project.property('mpUser'), '--width', '1280', '--height', '720'
+                property 'halloweenevent.mpObserver', project.property('mpUser')
+            }
+        }
         server {
             args '--nogui'
+            // gradlew runServer -PmpServer: the dedicated server for tools/mp_test.mjs, from run_mp/server.
+            if (project.hasProperty('mpServer')) {
+                workingDirectory project.file('run_mp/server')
+            }
+        }
+        // Headless automated tests: ./gradlew runGameTestServer (see README, "Automated tests").
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', mod_id
         }
     }
 }
@@ -38,6 +77,11 @@ repositories {
     // Hold Hands, Carry On and Freecam are compiled against the exact JARs used on the server (libs/).
     flatDir {
         dirs 'libs'
+    }
+    // Embeddium + Oculus for testing shader packs in runClient only.
+    maven {
+        url = 'https://api.modrinth.com/maven'
+        content { includeGroup 'maven.modrinth' }
     }
 }
 
@@ -48,6 +92,17 @@ dependencies {
     compileOnly fg.deobf("blank:holdhands:1.1.4")
     compileOnly fg.deobf("blank:carryon:2.1.2.7")
     compileOnly fg.deobf("blank:freecam:1.1.1")
+
+    // Dev client only (never bundled): shader packs in runClient. Packs go in run/shaderpacks.
+    // They are client-only mods and fail to load on a dedicated server, so the server and game-test runs skip them.
+    if (!gradle.startParameter.taskNames.any { it.toLowerCase().contains('server') || it.toLowerCase().contains('gametest') }) {
+        runtimeOnly fg.deobf("maven.modrinth:embeddium:0.3.31+mc1.20.1")
+        runtimeOnly fg.deobf("maven.modrinth:oculus:1.20.1-1.7.0")
+    }
+
+    // Dev runs only (never packaged): the game tests drive two bot players through Hold Hands' own code.
+    // Carry On needs a mixin setup and Freecam is client-only, so neither is on the test runtime classpath.
+    runtimeOnly fg.deobf("blank:holdhands:1.1.4")
 }
 
 tasks.named('processResources', ProcessResources).configure {
@@ -64,6 +119,9 @@ tasks.named('processResources', ProcessResources).configure {
 }
 
 tasks.named('jar', Jar).configure {
+    // The game tests live next to the mod code for convenience but are not shipped.
+    exclude 'com/halloweenevent/gametest/**'
+    exclude 'data/halloweenevent/structures/**'
     manifest {
         attributes([
                 'Specification-Title'     : mod_id,

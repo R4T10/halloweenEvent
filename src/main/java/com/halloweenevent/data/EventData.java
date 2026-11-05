@@ -20,6 +20,7 @@ import net.minecraft.world.phys.AABB;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -59,6 +60,13 @@ public class EventData extends SavedData {
     /** Seconds between hand-grab checks for each hand-holding pair; 0 disables. */
     public int grabIntervalSeconds = 90;
     public final Map<UUID, Progress> progress = new HashMap<>();
+    /**
+     * Players exempt from some kinds of scare: lower-case name -> (display name, {@link ScareKind} bit mask of the
+     * blocked kinds). By name so an admin can add someone who has not joined yet; Minecraft names are unique.
+     */
+    public final Map<String, Exemption> exemptions = new LinkedHashMap<>();
+
+    public record Exemption(String name, int blocked) {}
 
     @Nullable private AABB zoneCache;
 
@@ -90,6 +98,16 @@ public class EventData extends SavedData {
 
     public int levelFor(UUID id) {
         return scareLevels.getOrDefault(id, defaultScareLevel);
+    }
+
+    /** {@link ScareKind} bit mask of what this player must never get (0 = everything allowed). */
+    public int blockedFor(ServerPlayer player) {
+        Exemption e = exemptions.get(player.getGameProfile().getName().toLowerCase(java.util.Locale.ROOT));
+        return e == null ? 0 : e.blocked();
+    }
+
+    public boolean allows(ServerPlayer player, ScareKind kind) {
+        return !kind.in(blockedFor(player));
     }
 
     public Progress progress(ServerPlayer player) {
@@ -140,10 +158,19 @@ public class EventData extends SavedData {
             players.put(id.toString(), c);
         });
         tag.put("progress", players);
+
+        ListTag exempt = new ListTag();
+        exemptions.values().forEach(e -> {
+            CompoundTag c = new CompoundTag();
+            c.putString("name", e.name());
+            c.putInt("blocked", e.blocked());
+            exempt.add(c);
+        });
+        tag.put("exemptions", exempt);
         return tag;
     }
 
-    private static EventData load(CompoundTag tag) {
+    public static EventData load(CompoundTag tag) {
         EventData d = new EventData();
         ResourceLocation dim = ResourceLocation.tryParse(tag.getString("dimension"));
         if (dim != null) d.dimension = ResourceKey.create(Registries.DIMENSION, dim);
@@ -187,6 +214,13 @@ public class EventData extends SavedData {
                 p.completed = c.getBoolean("completed");
                 d.progress.put(id, p);
             });
+        }
+        for (Tag t : tag.getList("exemptions", Tag.TAG_COMPOUND)) {
+            CompoundTag c = (CompoundTag) t;
+            String name = c.getString("name");
+            if (!name.isEmpty()) {
+                d.exemptions.put(name.toLowerCase(java.util.Locale.ROOT), new Exemption(name, c.getInt("blocked") & ScareKind.ALL));
+            }
         }
         return d;
     }

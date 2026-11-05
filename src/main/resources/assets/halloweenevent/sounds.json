@@ -148,5 +148,50 @@
         "pitch": 0.5
       }
     ]
+  },
+  "flashlight_click": {
+    "subtitle": "subtitles.halloweenevent.flashlight_click",
+    "sounds": [
+      {
+        "name": "minecraft:random/click",
+        "pitch": 1.8,
+        "volume": 0.5
+      }
+    ]
+  },
+  "flashlight_die": {
+    "subtitle": "subtitles.halloweenevent.flashlight_die",
+    "sounds": [
+      {
+        "name": "minecraft:block/beacon/deactivate",
+        "pitch": 1.8,
+        "volume": 0.6
+      }
+    ]
+  },
+  "flashlight_flicker": {
+    "subtitle": "subtitles.halloweenevent.flashlight_flicker",
+    "sounds": [
+      {
+        "name": "minecraft:random/click",
+        "pitch": 1.4,
+        "volume": 0.35
+      },
+      {
+        "name": "minecraft:random/click",
+        "pitch": 2,
+        "volume": 0.3
+      }
+    ]
+  },
+  "flashlight_strain": {
+    "subtitle": "subtitles.halloweenevent.flashlight_strain",
+    "sounds": [
+      {
+        "name": "minecraft:block/beacon/activate",
+        "pitch": 1.7,
+        "volume": 0.35
+      }
+    ]
   }
 }

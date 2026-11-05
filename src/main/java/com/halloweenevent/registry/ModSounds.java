@@ -20,6 +20,12 @@ public final class ModSounds {
     public static final RegistryObject<SoundEvent> EVENT_WIN = sound("event_win");
     public static final RegistryObject<SoundEvent> FOOTSTEP = sound("footstep");
     public static final RegistryObject<SoundEvent> GRAB = sound("grab");
+    public static final RegistryObject<SoundEvent> FLASHLIGHT_CLICK = sound("flashlight_click");
+    public static final RegistryObject<SoundEvent> FLASHLIGHT_DIE = sound("flashlight_die");
+    /** One stutter of a struggling switch-on; played client-side in step with the light. */
+    public static final RegistryObject<SoundEvent> FLASHLIGHT_FLICKER = sound("flashlight_flicker");
+    /** The electric whine under a struggling switch-on. */
+    public static final RegistryObject<SoundEvent> FLASHLIGHT_STRAIN = sound("flashlight_strain");
 
     private ModSounds() {}
 

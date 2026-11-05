@@ -8,18 +8,25 @@ import net.minecraftforge.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
-/** Event/zone/progress state for the receiving player. Sent only when something changes. */
+/**
+ * Event/zone/progress state for the receiving player. Sent only when something changes.
+ *
+ * @param blocked {@link com.halloweenevent.data.ScareKind} bit mask of the scares this player is exempt from; the
+ *                client also drops those parts of combined scares
+ */
 public record S2CStatus(boolean active, boolean inZone, boolean completed, boolean freecamGuard, boolean holding,
-                        int count, int target) {
+                        int count, int target, int blocked) {
     public void encode(FriendlyByteBuf buf) {
         buf.writeByte((active ? 1 : 0) | (inZone ? 2 : 0) | (completed ? 4 : 0) | (freecamGuard ? 8 : 0) | (holding ? 16 : 0));
         buf.writeVarInt(count);
         buf.writeVarInt(target);
+        buf.writeVarInt(blocked);
     }
 
     public static S2CStatus decode(FriendlyByteBuf buf) {
         int f = buf.readByte();
-        return new S2CStatus((f & 1) != 0, (f & 2) != 0, (f & 4) != 0, (f & 8) != 0, (f & 16) != 0, buf.readVarInt(), buf.readVarInt());
+        return new S2CStatus((f & 1) != 0, (f & 2) != 0, (f & 4) != 0, (f & 8) != 0, (f & 16) != 0,
+                buf.readVarInt(), buf.readVarInt(), buf.readVarInt());
     }
 
     public static void handle(S2CStatus msg, Supplier<NetworkEvent.Context> ctx) {
