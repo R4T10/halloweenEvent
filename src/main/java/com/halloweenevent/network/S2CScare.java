@@ -16,8 +16,12 @@ public record S2CScare(int type, int level) {
     public static final int FIGURE = 3;
     public static final int CARRY_ON = 4;
     public static final int CARRY_OFF = 5;
-    /** Victim-only hallucination: a figure chases the player for 10 s. */
+    /** Victim-only hallucination: a figure chases the player for 10 s. The level (1-3) tints the fog: red at 3 only. */
     public static final int CHASE = 7;
+    /** Screen eyes; level 0 = a swarm at the edges, 1 = the whole screen. Admin test. */
+    public static final int EYES = 8;
+    /** The red hypnosis eye. Admin test. */
+    public static final int HYPNO = 9;
 
     public void encode(FriendlyByteBuf buf) {
         buf.writeByte(type);

@@ -95,6 +95,7 @@ public final class ClientEvents {
             if (mc.player == null || mc.level == null) return;
             clientTicks++;
             ScareEffects.clientTick(mc);
+            ScreenEyes.clientTick();
             ZoneFogRenderer.clientTick();
             CandyRenderer.tickParticles(mc, clientTicks);
             FlashlightClient.clientTick(mc);
@@ -142,6 +143,11 @@ public final class ClientEvents {
         @SubscribeEvent(priority = EventPriority.LOWEST)
         public static void recordCameraRoll(ViewportEvent.ComputeCameraAngles event) {
             FlashlightRenderer.cameraRoll = event.getRoll();
+        }
+
+        @SubscribeEvent
+        public static void onComputeFov(ViewportEvent.ComputeFov event) {
+            ScreenEyes.fov(event);
         }
 
         @SubscribeEvent

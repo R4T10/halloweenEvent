@@ -143,7 +143,7 @@ public class EventData extends SavedData {
         return tag;
     }
 
-    private static EventData load(CompoundTag tag) {
+    public static EventData load(CompoundTag tag) {
         EventData d = new EventData();
         ResourceLocation dim = ResourceLocation.tryParse(tag.getString("dimension"));
         if (dim != null) d.dimension = ResourceKey.create(Registries.DIMENSION, dim);

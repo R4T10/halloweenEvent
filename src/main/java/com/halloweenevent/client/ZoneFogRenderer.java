@@ -9,10 +9,7 @@ import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
-import com.halloweenevent.item.FlashlightItem;
 import net.minecraft.client.Minecraft;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
@@ -33,10 +30,6 @@ import org.lwjgl.opengl.GL30;
  */
 public final class ZoneFogRenderer {
     private static final float DRIFT = 0.025f;
-    /** Fog thickness alone, by scare level 1-3 (holding a hand: a quarter less). */
-    private static final float[] THICKNESS = {0f, 0.62f, 0.74f, 0.86f};
-
-    private static int fear = 2;
 
     static ShaderInstance shader;
 
@@ -65,18 +58,6 @@ public final class ZoneFogRenderer {
         prevHoldBlend = holdBlend;
         zoneBlend += ((ClientState.active && ClientState.inZone ? 1f : 0f) - zoneBlend) * 0.05f;
         holdBlend += ((ClientState.holding ? 1f : 0f) - holdBlend) * 0.04f;
-        fear = ownFear();
-    }
-
-    /** The player's scare level, read from the event flashlight the server keeps current ({@code Fear}); 2 without one. */
-    private static int ownFear() {
-        Player p = Minecraft.getInstance().player;
-        if (p == null) return 2;
-        for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
-            ItemStack stack = p.getInventory().getItem(i);
-            if (FlashlightItem.is(stack)) return FlashlightItem.fear(stack);
-        }
-        return 2;
     }
 
     public static void reset() {
@@ -122,19 +103,39 @@ public final class ZoneFogRenderer {
             // (fog over the whole screen), the same failure the flashlight pass had.
             depthTexture = mc.getMainRenderTarget().getDepthTextureId();
             mc.getMainRenderTarget().bindWrite(false);
-            draw();
+            safeDraw();
         } else {
             // Drawn later, after the hand cleared the depth: keep a copy of this frame's world depth.
-            copyDepth(mc.getMainRenderTarget());
+            try {
+                copyDepth(mc.getMainRenderTarget());
+            } catch (RuntimeException e) {
+                disable(e);
+                return;
+            }
             depthTexture = depthCopy.getDepthTextureId();
         }
+    }
+
+    /** A rendering error must never crash the game every frame: fall back to vanilla fog and say so once. */
+    private static void safeDraw() {
+        try {
+            draw();
+        } catch (RuntimeException e) {
+            disable(e);
+        }
+    }
+
+    private static void disable(RuntimeException e) {
+        shader = null;
+        pending = false;
+        com.halloweenevent.HalloweenEventMod.LOGGER.error("Zone fog shader failed while drawing; using vanilla fog instead", e);
     }
 
     /** Shader pack active: Oculus has finished the frame; draw onto its final image. */
     public static void renderAfterShaderPack() {
         if (pending && ShaderCompat.shaderPackInUse()) {
             Minecraft.getInstance().getMainRenderTarget().bindWrite(false);
-            draw();
+            safeDraw();
         }
     }
 
@@ -154,15 +155,13 @@ public final class ZoneFogRenderer {
 
     private static void draw() {
         pending = false;
-        // The original look: the same thickness over the whole screen, near or far (the first version read every
-        // pixel as sky through a depth bug, and that is the look the event wants). Thicker the higher the player's
-        // scare level, a quarter thinner holding a hand; scare stages add more and fade back on their own.
-        // start/end only size the wisps.
+        // Distance fog: the path right in front of the player stays readable, the far world sinks into mist.
+        // The thickness is the same at scare levels 1-3 (only the colour changes, red at level 3); holding a hand
+        // makes it thinner, scare stages add some and fade back on their own.
         float scare = ScareEffects.fogLevel();
         float start = Mth.lerp(frameHold, 4.0f, 8.0f) - scare;
         float end = Mth.lerp(frameHold, 30f, 40f) - scare * 6f;
-        float alone = THICKNESS[fear];
-        float max = Math.min(0.95f, Mth.lerp(frameHold, alone, alone * 0.75f) + scare * 0.12f) * frameZone;
+        float max = Math.min(0.7f, Mth.lerp(frameHold, 0.55f, 0.35f) + scare * 0.1f) * frameZone;
         float red = ScareEffects.fogRed() ? Math.min(1f, scare) : 0f;
 
         // Real mist, not darkness: the world's fog colour pulled towards pale grey, dimmed at night but never black.

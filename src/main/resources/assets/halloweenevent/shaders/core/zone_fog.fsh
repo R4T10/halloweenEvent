@@ -54,10 +54,10 @@ void main() {
     vec3 p = h.xyz / h.w;
     bool sky = depth >= 0.99999;
 
-    // The original look: every pixel fogged as if it were sky, so the same thickness near and far, with the wisps
-    // on a shell around the camera. Depth is only used for the flashlight's clearing below.
-    float base = 1.0;
-    vec3 w = normalize(p) * Fog.y + CamMod;
+    // Distance fog: clear right in front of the player (the path stays readable), thickening to the full
+    // strength at Fog.y; the sky is always fully fogged. Wisps sit on the real surface, or on a shell for the sky.
+    float base = sky ? 1.0 : smoothstep(Fog.x, Fog.y, length(p));
+    vec3 w = (sky ? normalize(p) * Fog.y : p) + CamMod;
     float drift = GameTime * 24000.0 * Fog.w;
     // Two octaves of drifting noise: big rolling banks plus finer wisps.
     float banks = noise3(w * 0.09 + vec3(drift, drift * 0.2, drift * 0.5));
