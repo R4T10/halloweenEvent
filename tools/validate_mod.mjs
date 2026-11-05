@@ -46,7 +46,9 @@ for (const k of new Set([...Object.keys(th), ...Object.keys(en)])) {
   else if (th[k] !== en[k]) fail(`th_th.json and en_us.json differ for "${k}" (English clients must also see Thai)`);
 }
 const used = new Set();
-for (const m of allJava.matchAll(/"((?:gui|msg|hud|cmd|horror|item|subtitles)\.halloweenevent\.[a-z0-9_.]*[a-z0-9_])"/g)) used.add(m[1]);
+for (const m of allJava.matchAll(/"((?:gui|msg|hud|cmd|horror|item|subtitles|key)\.halloweenevent\.[a-z0-9_.]*[a-z0-9_])"/g)) used.add(m[1]);
+// Key-binding category names (KeyMapping's last argument).
+for (const m of allJava.matchAll(/"(key\.categories\.halloweenevent)"/g)) used.add(m[1]);
 for (const k of used) if (!(k in th)) fail(`language key used in code but missing: ${k}`);
 // keys built at runtime
 const HORROR_LINES = +(allJava.match(/HORROR_LINES = (\d+)/)?.[1] ?? 0);

@@ -15,7 +15,9 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import org.joml.Matrix4f;
+import com.mojang.blaze3d.shaders.ProgramManager;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 
 /**
@@ -155,13 +157,13 @@ public final class ZoneFogRenderer {
 
     private static void draw() {
         pending = false;
-        // Distance fog: the path right in front of the player stays readable, the far world sinks into mist.
-        // The thickness is the same at scare levels 1-3 (only the colour changes, red at level 3); holding a hand
-        // makes it thinner, scare stages add some and fade back on their own.
+        // A solid wall of drifting grey mist, the look of the first version (feature/new-dark-figures-eyes: there
+        // a depth bug read every pixel as sky and the fog drew opaque). Here on purpose, the same on every GPU.
+        // Only flashlight beams cut through it (see zone_fog.fsh). start/end only size the wisps' shell.
         float scare = ScareEffects.fogLevel();
         float start = Mth.lerp(frameHold, 4.0f, 8.0f) - scare;
         float end = Mth.lerp(frameHold, 30f, 40f) - scare * 6f;
-        float max = Math.min(0.7f, Mth.lerp(frameHold, 0.55f, 0.35f) + scare * 0.1f) * frameZone;
+        float max = frameZone;
         float red = ScareEffects.fogRed() ? Math.min(1f, scare) : 0f;
 
         // Real mist, not darkness: the world's fog colour pulled towards pale grey, dimmed at night but never black.
@@ -175,12 +177,17 @@ public final class ZoneFogRenderer {
         shader.setSampler("DepthSampler", depthTexture);
         shader.safeGetUniform("InvViewProj").set(INV_VIEW_PROJ);
         shader.safeGetUniform("Fog").set(Math.max(0f, start), Math.max(start + 1f, end), max, DRIFT);
-        // Your own lit flashlight cuts the fog out of its cone (pulsing with the flicker); the rest stays foggy.
-        float beam = FlashlightRenderer.ownBeam();
-        Vec3 bo = FlashlightRenderer.ownOrigin, bd = FlashlightRenderer.ownDir;
-        shader.safeGetUniform("BeamPos").set((float) bo.x, (float) bo.y, (float) bo.z, beam);
-        shader.safeGetUniform("BeamCone").set((float) bd.x, (float) bd.y, (float) bd.z, FlashlightRenderer.COS_OUTER);
-        shader.safeGetUniform("BeamRange").set(FlashlightRenderer.RANGE);
+        // Every lit flashlight in view (yours and other players', flicker included) cuts its cone out of the wall.
+        shader.safeGetUniform("BeamCount").set((float) FlashlightRenderer.lightCount());
+        shader.safeGetUniform("BeamShape").set(FlashlightRenderer.COS_OUTER, FlashlightRenderer.RANGE);
+        if (beamFor != shader) {
+            beamFor = shader;
+            beamPosLoc = GL20.glGetUniformLocation(shader.getId(), "BeamPos");
+            beamDirLoc = GL20.glGetUniformLocation(shader.getId(), "BeamDir");
+        }
+        ProgramManager.glUseProgram(shader.getId());
+        if (beamPosLoc >= 0) GL20.glUniform4fv(beamPosLoc, FlashlightRenderer.lightPositions());
+        if (beamDirLoc >= 0) GL20.glUniform4fv(beamDirLoc, FlashlightRenderer.lightDirections());
         shader.safeGetUniform("CamMod").set((float) (camera.x % 4096.0), (float) (camera.y % 4096.0), (float) (camera.z % 4096.0));
         shader.safeGetUniform("ZoneFogColor").set(Mth.lerp(red, fr, 0.35f), Mth.lerp(red, fg, 0.05f), Mth.lerp(red, fb, 0.05f));
 
@@ -189,6 +196,11 @@ public final class ZoneFogRenderer {
         // into: both caused full-screen grey or hard-edged holes before.
         FullscreenPass.draw(shader, main);
     }
+
+    /** The beam arrays are not vanilla uniforms; set straight on the program (GL keeps them across apply()). */
+    private static ShaderInstance beamFor;
+    private static int beamPosLoc = -1;
+    private static int beamDirLoc = -1;
 
     private static long lastProbe;
 

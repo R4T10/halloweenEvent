@@ -129,12 +129,15 @@ with *Freecam guard* if you run cutscenes there.
 
 ## Zone fog
 
-Always on inside an active zone: pale grey, drifting, world-anchored wisps drawn in a full-screen pass over the
-scene's colour and depth (core shader `halloweenevent:zone_fog`, run through `FullscreenPass`), tinted by the
-world's own fog colour and dimmed at night. It is **distance fog**: the path right in front of you stays
-readable, the far world sinks into mist, the sky is fully fogged. Alone: starts at 4 blocks, thickest by 30
-(max 55%). Holding a hand: starts at 8, by 40, max 35%. A textured mist (two drifting layers of `mist.png`) is
-drawn on the screen on top.
+Always on inside an active zone: a **solid wall** of pale grey, drifting wisps over the whole screen, near or far
+(the look of `feature/new-dark-figures-eyes`, where a depth bug made the fog opaque; here on purpose so every GPU
+shows the same). Core shader `halloweenevent:zone_fog`, run through `FullscreenPass`, tinted by the world's own
+fog colour, dimmed at night, red at scare level 3.
+
+Only **flashlight beams cut through it**: where a lit beam (yours, or another player's within 32 blocks, up to 4)
+reaches a surface, the wall opens and the lit world shows, closing back towards the end of the beam (13 blocks).
+The opening follows the beam's brightness, so flicker, brown-outs and kills close the fog in again. A textured
+mist (two drifting layers of `mist.png`) is drawn on the screen on top.
 
 Scares thicken it as the ladder climbs (5 s, 15 s, 30 s). The thickness is **the same at levels 1, 2 and 3**;
 only level 3 tints it (and the chase's fog) red. Your own lit flashlight thins the fog inside its cone near you
@@ -247,6 +250,25 @@ zone of their own, save screenshots to `run/screenshots` and quit; run from a sh
 ./gradlew runClient -PgrabTest    # a bot partner holds your hand (third person), then you / the bot are dragged away: grab_*.png
 ./gradlew runClient -PflashlightTest   # the flashlight, fog debug views and inventory checks: fltest_*.png
 ```
+
+Multiplayer run (a real dedicated server and two real clients, each from its own folder under `run_mp/`; start
+each in its own terminal, the clients connect by themselves from the title screen and close when the server stops):
+
+```bash
+./gradlew runServer -PmpServer         # run_mp/server: eula, offline mode, RCON on 127.0.0.1 only (see server.properties)
+./gradlew runClient -PmpUser=PlayerA
+./gradlew runClient -PmpUser=PlayerB
+node tools/mp_test.mjs                 # drives the server over RCON; PASS/FAIL per check, then stops the server
+```
+
+`run_mp/server/mp_test` is a copy of an event world (zone around -27 -60 -9; other zones: pass `x y z` to
+`mp_test.mjs`). It checks: both join; no flashlight outside the zone, exactly one inside; each player switches it
+on with a real right-click; the test kill switches it off and the player relights it through the struggle; the
+figure, eyes, eye wall, hypno and chase reach their player; leaving takes the flashlight, coming back returns it;
+stopping the event takes every flashlight. Screenshots every 3 s in `run_mp/<player>/screenshots`, with a state
+line per shot in that client's log (`[MP PlayerA] ...`). The dark-figure grab needs two players holding hands
+(a key press), so it is covered by the game tests and `-PgrabTest` instead. Connect by hand with `127.0.0.1`,
+not `localhost` (the server listens on IPv4 loopback only).
 
 The game tests use **bot players**: real `ServerPlayer`s placed in the player list (so the mod's code sees them
 like connected players), standing in an empty stone arena (`tools/gen_arena.mjs`). Two bots hold hands through

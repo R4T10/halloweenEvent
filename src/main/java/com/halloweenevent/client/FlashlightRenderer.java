@@ -154,8 +154,24 @@ public final class FlashlightRenderer {
         log("shader loaded: program id " + s.getId());
     }
 
+    /** Lit flashlights this frame (0..{@value #MAX_LIGHTS}); the zone fog cuts their cones out of its wall. */
+    static int lightCount() {
+        return lightCount;
+    }
+
+    /** Camera-relative beam origins (xyz) and brightness (w), {@value #MAX_LIGHTS} entries; read-only views. */
+    static FloatBuffer lightPositions() {
+        return POS.duplicate();
+    }
+
+    /** Beam directions (xyz), {@value #MAX_LIGHTS} entries; read-only views. */
+    static FloatBuffer lightDirections() {
+        return DIR.duplicate();
+    }
+
     public static void onLevelRendered(RenderLevelStageEvent event) {
         pending = false;
+        lightCount = 0;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
         if (shader == null) {

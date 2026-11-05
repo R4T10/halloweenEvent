@@ -230,6 +230,8 @@ public final class FlashlightSelfTest {
             sp.teleportTo(level, x + 0.5, y, z + 0.5, 0f, 0f);
             // Start like a new player: no flashlight left from earlier play, free off hand for the hand-out.
             Flashlights.randomKillsOff = true;
+            // Alone in the zone the hold-hands scare ladder would kill the flashlight mid-run (copy of the world).
+            EventData.get(server).holdScares = false;
             Flashlights.strip(sp);
             sp.getInventory().offhand.set(0, ItemStack.EMPTY);
             HalloweenEventMod.LOGGER.info("[FlashlightTest] scene at {} {} {}, zone {}", x, y, z, zone);

@@ -92,6 +92,7 @@ public final class ClientEvents {
         public static void onClientTick(TickEvent.ClientTickEvent event) {
             if (event.phase != TickEvent.Phase.END) return;
             Minecraft mc = Minecraft.getInstance();
+            MultiplayerObserver.menuTick(mc);
             if (mc.player == null || mc.level == null) return;
             clientTicks++;
             ScareEffects.clientTick(mc);
@@ -102,6 +103,7 @@ public final class ClientEvents {
             FlashlightSelfTest.clientTick(mc);
             ScareSelfTest.clientTick(mc);
             GrabSelfTest.clientTick(mc);
+            MultiplayerObserver.clientTick(mc);
             guardFreecam(mc);
         }
 
@@ -171,6 +173,7 @@ public final class ClientEvents {
             FlashlightClient.reset();
             lastFreecam = clientTicks - FREECAM_REPORT_TICKS;
             freecamReported = false;
+            MultiplayerObserver.onLoggedOut(Minecraft.getInstance());
         }
     }
 }

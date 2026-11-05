@@ -40,3 +40,4 @@ replay_*.log
 *.jfr
 /libs
 /tools/flashlight_src
+run_mp/

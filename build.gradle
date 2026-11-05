@@ -49,9 +49,22 @@ minecraft {
                 args '--quickPlaySingleplayer', 'flashlight_test', '--width', '1920', '--height', '1080'
                 property 'halloweenevent.grabSelfTest', 'true'
             }
+            // gradlew runClient -PmpUser=PlayerA: joins the dedicated server on 127.0.0.1 as PlayerA from its own
+            // folder (run_mp/PlayerA), acting as a player for tools/mp_test.mjs (client/MultiplayerObserver).
+            // No --quickPlayMultiplayer: connecting while mods still load hung the Forge handshake; the observer
+            // connects from the title screen instead.
+            if (project.hasProperty('mpUser')) {
+                workingDirectory project.file("run_mp/${project.property('mpUser')}")
+                args '--username', project.property('mpUser'), '--width', '1280', '--height', '720'
+                property 'halloweenevent.mpObserver', project.property('mpUser')
+            }
         }
         server {
             args '--nogui'
+            // gradlew runServer -PmpServer: the dedicated server for tools/mp_test.mjs, from run_mp/server.
+            if (project.hasProperty('mpServer')) {
+                workingDirectory project.file('run_mp/server')
+            }
         }
         // Headless automated tests: ./gradlew runGameTestServer (see README, "Automated tests").
         gameTestServer {
