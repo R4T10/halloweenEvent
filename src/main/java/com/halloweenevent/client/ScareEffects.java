@@ -44,6 +44,8 @@ public final class ScareEffects {
     private static final ResourceLocation STATIC = tex("textures/misc/static.png");
     private static final ResourceLocation SCREEN_HAND = tex("textures/misc/screen_hand.png");
     private static final ResourceLocation GLITCH_POST = tex("shaders/post/glitch.json");
+    /** Scare fog at the 30 s stage: identical at levels 1, 2 and 3 (only level 3 tints it red). */
+    private static final float FOG_PEAK = 1.0f;
     private static final int HORROR_LINES = 16;
     private static final int MAX_TEXTS = 16;
     private static final RandomSource RNG = RandomSource.create();
@@ -117,7 +119,7 @@ public final class ScareEffects {
                 }
             }
             case S2CScare.FIGURE -> {
-                fogTo(level >= 3 ? 1.0f : 0.85f, level >= 3);
+                fogTo(FOG_PEAK, level >= 3); // same thickness at every level; only level 3 turns red
                 if (level <= 1) {
                     whisper(true);
                     spawnTexts(6, 90);
@@ -134,7 +136,7 @@ public final class ScareEffects {
                 }
             }
             case S2CScare.CARRY_OFF -> carryFace = false;
-            case S2CScare.CHASE -> startChase(mc);
+            case S2CScare.CHASE -> startChase(mc, level);
             case S2CScare.EYES -> {
                 if (level >= 1) ScreenEyes.wall(40);
                 else ScreenEyes.swarm(10, 80);
@@ -340,7 +342,7 @@ public final class ScareEffects {
         return new Vec3(v.x + handDirX * off, v.y, v.z + handDirZ * off);
     }
 
-    private static void startChase(Minecraft mc) {
+    private static void startChase(Minecraft mc, int level) {
         Player p = mc.player;
         if (p == null || mc.level == null) return;
         Vec3 look = p.getLookAngle();
@@ -356,7 +358,7 @@ public final class ScareEffects {
         play(ModSounds.SCREAM.get(), 0.8f, 0.5f);
         spawnText("horror.halloweenevent.chase_start", 40);
         ScreenEyes.swarm(10, 60);
-        fogTo(0.7f, true);
+        fogTo(0.7f, level >= 3);
     }
 
     /** Straight-line pursuit at just under sprint speed; passes through walls (it is a hallucination). */
@@ -513,7 +515,7 @@ public final class ScareEffects {
             if (full) g.fill(0, 0, w, h, 0xFF000000);
             RenderSystem.enableBlend();
             g.setColor(1f, 1f, 1f, alpha);
-            g.blit(FACE, x, y, size, size, 0, 0, 256, 256, 256, 256);
+            g.blit(FACE, x, y, size, size, 0, 0, 512, 512, 512, 512);
             g.setColor(1f, 1f, 1f, 1f);
             RenderSystem.disableBlend();
         }
@@ -538,9 +540,9 @@ public final class ScareEffects {
         g.blit(VIGNETTE, 0, 0, w, h, 0, 0, 256, 256, 256, 256);
         g.setColor(1f, 1f, 1f, Math.min(1f, show * 1.4f));
         if (screenHandSide < 0) {
-            g.blit(SCREEN_HAND, -size + reach + jx, y, size, size, 0, 0, 256, 256, 256, 256);
+            g.blit(SCREEN_HAND, -size + reach + jx, y, size, size, 0, 0, 512, 512, 512, 512);
         } else {
-            g.blit(SCREEN_HAND, w - reach + jx, y, size, size, 256, 0, -256, 256, 256, 256);
+            g.blit(SCREEN_HAND, w - reach + jx, y, size, size, 512, 0, -512, 512, 512, 512);
         }
         g.setColor(1f, 1f, 1f, 1f);
         RenderSystem.disableBlend();
@@ -558,9 +560,9 @@ public final class ScareEffects {
         RenderSystem.enableBlend();
         float r = (fogRed ? 0.75f : 0.8f) * brightness, gb = (fogRed ? 0.55f : 0.82f) * brightness;
         g.setColor(r, gb, gb, strength * 0.45f);
-        g.blit(MIST, 0, 0, w, h, time * 0.35f, time * 0.08f, w / 2, h / 2, 128, 128);
+        g.blit(MIST, 0, 0, w, h, time * 0.7f, time * 0.16f, w, h, 256, 256);
         g.setColor(r, gb, gb, strength * 0.3f);
-        g.blit(MIST, 0, 0, w, h, -time * 0.22f, time * 0.15f + 40, w / 3, h / 3, 128, 128);
+        g.blit(MIST, 0, 0, w, h, -time * 0.44f, time * 0.3f + 80, w * 2 / 3, h * 2 / 3, 256, 256);
         if (vignette > 0.01f) {
             g.setColor(fogRed ? 0.25f : 0f, 0f, 0f, vignette);
             g.blit(VIGNETTE, 0, 0, w, h, 0, 0, 256, 256, 256, 256);

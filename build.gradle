@@ -31,6 +31,10 @@ minecraft {
         server {
             args '--nogui'
         }
+        // Headless automated tests: ./gradlew runGameTestServer (see README, "Automated tests").
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
     }
 }
 
@@ -48,6 +52,10 @@ dependencies {
     compileOnly fg.deobf("blank:holdhands:1.1.4")
     compileOnly fg.deobf("blank:carryon:2.1.2.7")
     compileOnly fg.deobf("blank:freecam:1.1.1")
+
+    // Dev runs only (never packaged): the game tests drive two bot players through Hold Hands' own code.
+    // Carry On needs a mixin setup and Freecam is client-only, so neither is on the test runtime classpath.
+    runtimeOnly fg.deobf("blank:holdhands:1.1.4")
 }
 
 tasks.named('processResources', ProcessResources).configure {
@@ -64,6 +72,9 @@ tasks.named('processResources', ProcessResources).configure {
 }
 
 tasks.named('jar', Jar).configure {
+    // The game tests live next to the mod code for convenience but are not shipped.
+    exclude 'com/halloweenevent/gametest/**'
+    exclude 'data/halloweenevent/structures/**'
     manifest {
         attributes([
                 'Specification-Title'     : mod_id,

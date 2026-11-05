@@ -409,7 +409,7 @@ public final class EventManager {
                     g.step = 2;
                 }
             } else if (g.step == 2 && age >= GRAB_CHASE_AT) {
-                Net.toPlayer(victim, new S2CScare(S2CScare.CHASE, 0));
+                Net.toPlayer(victim, new S2CScare(S2CScare.CHASE, EventData.get(server).levelFor(g.victim)));
                 it.remove();
             }
         }
@@ -546,6 +546,7 @@ public final class EventManager {
     public static void setFreecam(ServerPlayer sp, boolean active) {
         Session s = SESSIONS.get(sp.getUUID());
         if (s == null || s.freecam == active) return;
+        if (active && !s.inside) return;   // only meaningful inside the zone: ignore stray or spammed reports
         s.freecam = active;
         if (active) {
             HalloweenEventMod.LOGGER.info("{} tried to use a free camera inside the Halloween zone", sp.getGameProfile().getName());

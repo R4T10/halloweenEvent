@@ -91,19 +91,39 @@ public final class ZoneFogRenderer {
         System.arraycopy(worldFog, 0, WORLD_FOG, 0, 3);
         daylight = mc.level.getSkyDarken(pt);
         INV_VIEW_PROJ.set(event.getProjectionMatrix()).mul(event.getPoseStack().last().pose()).invert();
-        copyDepth(mc.getMainRenderTarget());
+        try {
+            copyDepth(mc.getMainRenderTarget());
+        } catch (RuntimeException e) {
+            disable(e);
+            return;
+        }
         pending = true;
         if (!ShaderCompat.shaderPackInUse()) {
             mc.getMainRenderTarget().bindWrite(false);
-            draw();
+            safeDraw();
         }
+    }
+
+    /** A rendering error must never crash the game every frame: fall back to vanilla fog and say so once. */
+    private static void safeDraw() {
+        try {
+            draw();
+        } catch (RuntimeException e) {
+            disable(e);
+        }
+    }
+
+    private static void disable(RuntimeException e) {
+        shader = null;
+        pending = false;
+        com.halloweenevent.HalloweenEventMod.LOGGER.error("Zone fog shader failed while drawing; using vanilla fog instead", e);
     }
 
     /** Shader pack active: Oculus has finished the frame; draw onto its final image. */
     public static void renderAfterShaderPack() {
         if (pending && ShaderCompat.shaderPackInUse()) {
             Minecraft.getInstance().getMainRenderTarget().bindWrite(false);
-            draw();
+            safeDraw();
         }
     }
 

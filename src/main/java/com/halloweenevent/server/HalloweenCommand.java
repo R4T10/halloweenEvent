@@ -80,7 +80,7 @@ public final class HalloweenCommand {
     }
 
     private static int testChase(CommandContext<CommandSourceStack> ctx, ServerPlayer target) {
-        Net.toPlayer(target, new S2CScare(S2CScare.CHASE, 0));
+        Net.toPlayer(target, new S2CScare(S2CScare.CHASE, EventData.get(target.server).levelFor(target.getUUID())));
         ctx.getSource().sendSuccess(() -> Component.translatable("cmd.halloweenevent.test",
                 "chase", target.getDisplayName()), false);
         return 1;

@@ -140,7 +140,7 @@ public final class ScreenEyes {
         int sw = size, sh = size / 2;
         if (hypno) g.setColor(1f, 0.45f, 0.45f, alpha);
         else g.setColor(1f, 1f, 1f, alpha);
-        g.blit(SCLERA, cx - sw / 2, cy - sh / 2, sw, sh, 0, 0, 64, 32, 64, 32);
+        g.blit(SCLERA, cx - sw / 2, cy - sh / 2, sw, sh, 0, 0, 256, 128, 256, 128);
 
         g.setColor(1f, 1f, 1f, alpha);
         if (hypno) {
@@ -148,15 +148,15 @@ public final class ScreenEyes {
             g.pose().pushPose();
             g.pose().translate(cx, cy, 0);
             g.pose().mulPose(Axis.ZP.rotationDegrees(spin));
-            g.blit(SPIRAL, -r / 2, -r / 2, r, r, 0, 0, 64, 64, 64, 64);
+            g.blit(SPIRAL, -r / 2, -r / 2, r, r, 0, 0, 256, 256, 256, 256);
             g.pose().popPose();
         } else {
             int d = (int) (sh * 0.84f);
-            g.blit(IRIS, (int) (cx - d / 2f + ix), (int) (cy - d / 2f + iy), d, d, 0, 0, 32, 32, 32, 32);
+            g.blit(IRIS, (int) (cx - d / 2f + ix), (int) (cy - d / 2f + iy), d, d, 0, 0, 128, 128, 128, 128);
         }
 
         int lw = (int) (sw * 1.25f), lh = (int) (sh * 1.25f);
-        g.blit(LIDS, cx - lw / 2, cy - lh / 2, lw, lh, 0, lid * 32, 64, 32, 64, 128);
+        g.blit(LIDS, cx - lw / 2, cy - lh / 2, lw, lh, 0, lid * 128, 256, 128, 256, 512);
     }
 
     /** The hypnosis eye makes the world breathe in and out. */
