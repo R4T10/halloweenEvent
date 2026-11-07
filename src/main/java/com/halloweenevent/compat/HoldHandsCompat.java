@@ -5,6 +5,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.fml.ModList;
 
 import javax.annotation.Nullable;
+import java.util.List;
 
 /**
  * Hold Hands 1.1.4 integration. Uses the mod's public server-side state:
@@ -36,16 +37,27 @@ public final class HoldHandsCompat {
     /** Separate class so Hold Hands classes are only resolved when the mod is present. */
     private static final class Impl {
         static boolean isHolding(ServerPlayer player) {
-            return HoldManager.isHolding(player.getUUID()) && HoldManager.partnerOf(player) != null;
+            return HoldManager.isHolding(player.getUUID());
         }
 
         static ServerPlayer partner(ServerPlayer player) {
-            return HoldManager.isHolding(player.getUUID()) ? HoldManager.partnerOf(player) : null;
+            if (!HoldManager.isHolding(player.getUUID())) {
+                return null;
+            }
+            List<ServerPlayer> partners = HoldManager.partnersOf(player);
+            return partners.isEmpty() ? null : partners.get(0);
         }
 
         static void release(ServerPlayer player, ServerPlayer partner) {
-            if (HoldManager.isHolding(player.getUUID())) {
-                HoldManager.release(player.server, player, HoldManager.Reason.SLIPPED, partner);
+            if (!HoldManager.isHolding(player.getUUID())) {
+                return;
+            }
+            if (partner != null) {
+                // ปล่อยเฉพาะคู่ที่ระบุ
+                HoldManager.releaseLink(player.server, player, partner.getUUID(), HoldManager.Reason.SLIPPED);
+            } else {
+                // ไม่ระบุคู่ = ปล่อยทุกคน
+                HoldManager.release(player.server, player, HoldManager.Reason.SLIPPED, null);
             }
         }
     }

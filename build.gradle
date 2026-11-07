@@ -89,7 +89,8 @@ dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
     // Optional integrations: compile-only, detected at runtime with ModList.isLoaded().
-    compileOnly fg.deobf("blank:holdhands:1.1.4")
+//    compileOnly fg.deobf("blank:holdhands:1.2.0")
+    compileOnly files("libs/holdhands-1.2.0.jar") // Hold Hands 1.1.4 is the last version that works with 1.20.1; 1.2.0+ is for 1.21+.
     compileOnly fg.deobf("blank:carryon:2.1.2.7")
     compileOnly fg.deobf("blank:freecam:1.1.1")
 
@@ -102,7 +103,7 @@ dependencies {
 
     // Dev runs only (never packaged): the game tests drive two bot players through Hold Hands' own code.
     // Carry On needs a mixin setup and Freecam is client-only, so neither is on the test runtime classpath.
-    runtimeOnly fg.deobf("blank:holdhands:1.1.4")
+    runtimeOnly fg.deobf("blank:holdhands:1.2.0")
 }
 
 tasks.named('processResources', ProcessResources).configure {

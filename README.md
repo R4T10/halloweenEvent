@@ -177,7 +177,7 @@ Always on inside an active zone: a **solid wall** of pale grey, drifting wisps o
 shows the same). Core shader `halloweenevent:zone_fog`, run through `FullscreenPass`, tinted by the world's own
 fog colour, dimmed at night, red at scare level 3.
 
-Only **flashlight beams cut through it**: where a lit beam (yours, or another player's within 32 blocks, up to 4)
+Only **flashlight beams cut through it**: where a lit beam (yours, or the nearest other player's within 9 blocks)
 reaches a surface, the wall opens and the lit world shows, closing back towards the end of the beam (13 blocks).
 The opening follows the beam's brightness, so flicker, brown-outs and kills close the fog in again. A textured
 mist (two drifting layers of `mist.png`) is drawn on the screen on top.
@@ -219,8 +219,10 @@ in the world. Not in any creative tab. Right-click switches it on and off.
   light. A full-screen pass over the depth buffer (core shader `halloweenevent:flashlight`, same timing as the
   zone fog, so it works with Oculus too). Lights surfaces before the zone fog; your own beam only thins the fog
   near you (at most 55%), so what is further out stays hidden.
-  Up to 4 beams at once (yours first, then the nearest players within 32 blocks), so a 200-player crowd costs the
-  same as 4. No extra packets: beams come from the held item's NBT.
+  You see other people's beams only from very close: full strength within 5 blocks, faded out by 9, and only the
+  nearest one of them, so two beams at most. Anyone further away adds no light at all, which keeps the dark dark
+  with 200 players in the zone and costs the same whoever is around. No extra packets: beams come from the held
+  item's NBT. Tune it with `NEAR_FULL`, `NEAR_FADE` and `MAX_OTHER_BEAMS` in `FlashlightRenderer`.
 - Phenomena scale with the player's scare level (Players tab, 1-3), stored on the item as `Fear`:
 
   | | Level 1 | Level 2 | Level 3 |

@@ -66,8 +66,15 @@ public final class FlashlightRenderer {
     private static final float GAIN = 0.6f;
     private static final float LIFT = 0.02f;
     private static final float[] COLOR = {1.0f, 0.88f, 0.68f};
-    /** Other players' beams beyond this are lost in the fog anyway; keeps crowds (200 players) cheap. */
-    private static final double VISIBLE_DISTANCE_SQ = 32 * 32;
+    /**
+     * Another player's beam is a hint that someone is right beside you, not zone lighting: full strength while
+     * they are this close, fading to nothing at {@link #NEAR_FADE}. Far enough away for the partner you hold
+     * hands with, close enough that a crowd (200 players) never lights the dark up.
+     */
+    private static final double NEAR_FULL = 5.0;
+    private static final double NEAR_FADE = 9.0;
+    /** How many other people's beams show at once, however many are nearby; the own beam is extra. */
+    private static final int MAX_OTHER_BEAMS = 1;
 
     static ShaderInstance shader;
 
@@ -225,6 +232,17 @@ public final class FlashlightRenderer {
         return Mth.clamp(0.06f + 0.06f * gamma + 0.9f * level * level, 0.03f, 1f);
     }
 
+    /**
+     * How much of another player's beam shows at this distance: all of it within {@value #NEAR_FULL} blocks,
+     * nothing from {@value #NEAR_FADE} out.
+     */
+    private static float nearFade(double distSq) {
+        double dist = Math.sqrt(distSq);
+        if (dist <= NEAR_FULL) return 1f;
+        if (dist >= NEAR_FADE) return 0f;
+        return (float) ((NEAR_FADE - dist) / (NEAR_FADE - NEAR_FULL));
+    }
+
     /** Fills POS/DIR (camera-relative) with the nearest lit flashlights, the camera's own first. */
     private static boolean collectLights(Minecraft mc, Camera camera, float pt) {
         Vec3 cam = camera.getPosition();
@@ -235,11 +253,13 @@ public final class FlashlightRenderer {
             ItemStack stack = FlashlightItem.heldLit(p);
             if (stack.isEmpty()) continue;
             double distSq = p.distanceToSqr(cam);
-            if (distSq > VISIBLE_DISTANCE_SQ) continue;
-            float intensity = FlashlightClient.intensity(p, stack, time, pt);
-            // Flickered fully off this frame: keep the slot so the log still shows the light, but it adds nothing.
-
             boolean own = p == camera.getEntity();
+            // Your own light always; someone else's only from very close, fading out with distance so it never
+            // pops in and out as they walk.
+            float near = own ? 1f : nearFade(distSq);
+            if (near <= 0f) continue;
+            // Flickered fully off this frame: keep the slot so the log still shows the light, but it adds nothing.
+            float intensity = FlashlightClient.intensity(p, stack, time, pt) * near;
             boolean firstPerson = own && !camera.isDetached();
             Vec3 dir = firstPerson ? new Vec3(camera.getLookVector()) : p.getViewVector(pt);
             Vec3 eye = firstPerson ? cam : p.getEyePosition(pt);
@@ -266,7 +286,9 @@ public final class FlashlightRenderer {
 
         POS.clear();
         DIR.clear();
-        lightCount = Math.min(MAX_LIGHTS, lights.size());
+        // The own beam, then at most MAX_OTHER_BEAMS of the nearest other people's.
+        lightCount = Math.min(Math.min(MAX_LIGHTS, lights.size()),
+                (lights.get(0).own() ? 1 : 0) + MAX_OTHER_BEAMS);
         for (int i = 0; i < MAX_LIGHTS; i++) {
             Light l = i < lightCount ? lights.get(i) : null;
             POS.put(l == null ? 0 : (float) l.origin().x).put(l == null ? 0 : (float) l.origin().y)
